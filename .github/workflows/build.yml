@@ -1,0 +1,83 @@
+name: Build Nerf Client
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Select Xcode
+        run: |
+          set -e
+          WANTED=$(python3 -c 'import json;print(json.load(open("versions.json"))["xcode"])')
+          if [ -d "/Applications/Xcode_$WANTED.app" ]; then
+            XCODE="/Applications/Xcode_$WANTED.app"
+          else
+            # Fall back to the newest Xcode 26 on the runner; Make.py is run with --overrideXcodeVersion.
+            XCODE=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
+            echo "::warning::Xcode $WANTED is not on the runner, using $XCODE"
+          fi
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Prepare configuration
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+        run: |
+          python3 - <<'EOF'
+          import json, os
+          config = json.load(open("build-system/appstore-configuration.json"))
+          api_id = os.environ.get("TG_API_ID", "").strip()
+          api_hash = os.environ.get("TG_API_HASH", "").strip()
+          if api_id and api_hash:
+              config["api_id"] = api_id
+              config["api_hash"] = api_hash
+          else:
+              print("::warning::TG_API_ID / TG_API_HASH secrets are not set; using the upstream api_id. Get your own at https://my.telegram.org")
+          json.dump(config, open("build-configuration.json", "w"), indent=2)
+          EOF
+
+      - name: Restore Bazel cache
+        uses: actions/cache@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: bazel-${{ runner.os }}-${{ hashFiles('versions.json') }}-${{ github.sha }}
+          restore-keys: |
+            bazel-${{ runner.os }}-${{ hashFiles('versions.json') }}-
+
+      - name: Build
+        run: |
+          set -e
+          python3 build-system/Make/ImportCertificates.py --path build-system/fake-codesigning/certs
+          python3 -u build-system/Make/Make.py \
+            --overrideXcodeVersion \
+            --cacheDir="$HOME/telegram-bazel-cache" \
+            build \
+            --configurationPath=build-configuration.json \
+            --codesigningInformationPath=build-system/fake-codesigning \
+            --configuration=release_arm64 \
+            --buildNumber=${{ github.run_number }} \
+            --outputBuildArtifactsPath=build/artifacts
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: NerfClient-${{ github.run_number }}
+          path: build/artifacts/Telegram.ipa
+          if-no-files-found: error
+          retention-days: 14
