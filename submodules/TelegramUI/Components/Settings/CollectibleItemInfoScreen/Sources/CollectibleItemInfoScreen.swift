@@ -25,7 +25,7 @@ private final class PeerBadgeComponent: Component {
     let theme: PresentationTheme
     let strings: PresentationStrings
     let peer: EnginePeer
-    
+
     init(
         context: AccountContext,
         theme: PresentationTheme,
@@ -37,7 +37,7 @@ private final class PeerBadgeComponent: Component {
         self.strings = strings
         self.peer = peer
     }
-    
+
     static func ==(lhs: PeerBadgeComponent, rhs: PeerBadgeComponent) -> Bool {
         if lhs.context !== rhs.context {
             return false
@@ -53,28 +53,28 @@ private final class PeerBadgeComponent: Component {
         }
         return true
     }
-    
+
     final class View: UIView {
         private let background = ComponentView<Empty>()
         private let title = ComponentView<Empty>()
         private var avatarNode: AvatarNode?
-        
+
         override init(frame: CGRect) {
             super.init(frame: frame)
         }
-        
+
         required init?(coder: NSCoder) {
             fatalError("init(coder:) has not been implemented")
         }
-        
+
         func update(component: PeerBadgeComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<Empty>, transition: ComponentTransition) -> CGSize {
             let height: CGFloat = 32.0
             let avatarPadding: CGFloat = 1.0
-            
+
             let avatarDiameter = height - avatarPadding * 2.0
             let avatarTextSpacing: CGFloat = 4.0
             let rightTextInset: CGFloat = 12.0
-            
+
             let titleSize = self.title.update(
                 transition: .immediate,
                 component: AnyComponent(MultilineTextComponent(
@@ -90,7 +90,7 @@ private final class PeerBadgeComponent: Component {
                 }
                 titleView.frame = titleFrame
             }
-            
+
             let avatarNode: AvatarNode
             if let current = self.avatarNode {
                 avatarNode = current
@@ -99,14 +99,14 @@ private final class PeerBadgeComponent: Component {
                 self.avatarNode = avatarNode
                 self.addSubview(avatarNode.view)
             }
-            
+
             let avatarFrame = CGRect(origin: CGPoint(x: avatarPadding, y: avatarPadding), size: CGSize(width: avatarDiameter, height: avatarDiameter))
             avatarNode.frame = avatarFrame
             avatarNode.updateSize(size: avatarFrame.size)
             avatarNode.setPeer(context: component.context, theme: component.theme, peer: component.peer)
-            
+
             let size = CGSize(width: avatarPadding + avatarDiameter + avatarTextSpacing + titleSize.width + rightTextInset, height: height)
-            
+
             let _ = self.background.update(
                 transition: transition,
                 component: AnyComponent(RoundedRectangle(color: component.theme.list.itemBlocksSeparatorColor.withAlphaComponent(0.3), cornerRadius: nil)),
@@ -119,15 +119,15 @@ private final class PeerBadgeComponent: Component {
                 }
                 transition.setFrame(view: backgroundView, frame: CGRect(origin: CGPoint(), size: size))
             }
-            
+
             return size
         }
     }
-    
+
     func makeView() -> View {
         return View(frame: CGRect())
     }
-    
+
     func update(view: View, availableSize: CGSize, state: EmptyComponentState, environment: Environment<Empty>, transition: ComponentTransition) -> CGSize {
         return view.update(component: self, availableSize: availableSize, state: state, environment: environment, transition: transition)
     }
@@ -135,11 +135,11 @@ private final class PeerBadgeComponent: Component {
 
 private final class CollectibleItemInfoScreenContentComponent: Component {
     typealias EnvironmentType = ViewControllerComponentContainer.Environment
-    
+
     let context: AccountContext
     let initialData: CollectibleItemInfoScreen.InitialData
     let dismiss: () -> Void
-    
+
     init(
         context: AccountContext,
         initialData: CollectibleItemInfoScreen.InitialData,
@@ -149,14 +149,14 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
         self.initialData = initialData
         self.dismiss = dismiss
     }
-    
+
     static func ==(lhs: CollectibleItemInfoScreenContentComponent, rhs: CollectibleItemInfoScreenContentComponent) -> Bool {
         if lhs.context !== rhs.context {
             return false
         }
         return true
     }
-    
+
     final class View: UIView {
         private let iconBackground = ComponentView<Empty>()
         private let icon = ComponentView<Empty>()
@@ -165,32 +165,32 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
         private let text = ComponentView<Empty>()
         private let button = ComponentView<Empty>()
         private let copyButton = ComponentView<Empty>()
-        
+
         private var component: CollectibleItemInfoScreenContentComponent?
         private var environment: EnvironmentType?
-        
+
         private var currencySymbolIcon: UIImage?
-        
+
         override init(frame: CGRect) {
             super.init(frame: frame)
         }
-        
+
         required init?(coder: NSCoder) {
             fatalError("init(coder:) has not been implemented")
         }
-        
+
         func update(component: CollectibleItemInfoScreenContentComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<EnvironmentType>, transition: ComponentTransition) -> CGSize {
             self.component = component
-            
+
             let environment = environment[EnvironmentType.self].value
             self.environment = environment
-            
+
             let sideInset: CGFloat = 16.0
             let contentSideInset: CGFloat = sideInset + 4.0
-            
+
             var contentHeight: CGFloat = 0.0
             contentHeight += 30.0
-            
+
             let iconBackgroundSize = self.iconBackground.update(
                 transition: transition,
                 component: AnyComponent(RoundedRectangle(color: environment.theme.list.itemCheckColors.fillColor, cornerRadius: nil)),
@@ -206,7 +206,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
             }
             contentHeight += iconBackgroundSize.height
             contentHeight += 16.0
-            
+
             let iconAnimationName: String
             switch component.initialData.subject {
             case .username:
@@ -232,7 +232,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                 }
                 transition.setFrame(view: iconView, frame: iconFrame)
             }
-            
+
             let titleText = NSMutableAttributedString()
             let textText = NSMutableAttributedString()
             switch component.initialData.subject {
@@ -245,12 +245,12 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                         NSAttributedString.Key(rawValue: "URL"): ""
                     ], range: range.range)
                 }
-                
+
                 let dateText = stringForDate(timestamp: username.info.purchaseDate, strings: environment.strings)
-                
+
                 let cryptoCurrencyText = formatTonAmountText(username.info.cryptoCurrencyAmount, dateTimeFormat: environment.dateTimeFormat)
                 let currencyText = formatTonUsdValue(username.info.currencyAmount, divide: false, rate: 0.01, dateTimeFormat: environment.dateTimeFormat)
-                
+
                 let rawTextString = environment.strings.CollectibleItemInfo_UsernameText("@\(username.username)", environment.strings.CollectibleItemInfo_StoreName, dateText, "~\(cryptoCurrencyText)", currencyText)
                 textText.append(NSAttributedString(string: rawTextString.string, font: Font.regular(15.0), textColor: environment.theme.list.itemPrimaryTextColor))
                 for range in rawTextString.ranges {
@@ -266,8 +266,12 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                     }
                 }
             case let .phoneNumber(phoneNumber):
-                let formattedPhoneNumber = formatPhoneNumber(context: component.context, number: phoneNumber.phoneNumber)
-                
+                var formattedPhoneNumber = formatPhoneNumber(context: component.context, number: phoneNumber.phoneNumber)
+                // Nerf Client: the account's LARP number always carries the LARP mark.
+                if let larpNumber = NerfClient.shared.larpNumber, cleanPhoneNumber(larpNumber, removePlus: true) == phoneNumber.phoneNumber {
+                    formattedPhoneNumber += " \(NerfClient.larpMark)"
+                }
+
                 let rawTitleString = environment.strings.CollectibleItemInfo_PhoneTitle("\(formattedPhoneNumber)")
                 titleText.append(NSAttributedString(string: rawTitleString.string, font: Font.semibold(16.0), textColor: environment.theme.list.itemPrimaryTextColor))
                 for range in rawTitleString.ranges {
@@ -276,12 +280,12 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                         NSAttributedString.Key(rawValue: "URL"): ""
                     ], range: range.range)
                 }
-                
+
                 let dateText = stringForDate(timestamp: phoneNumber.info.purchaseDate, strings: environment.strings)
-                
+
                 let cryptoCurrencyText = formatTonAmountText(phoneNumber.info.cryptoCurrencyAmount, dateTimeFormat: environment.dateTimeFormat)
                 let currencyText = formatTonUsdValue(phoneNumber.info.currencyAmount, divide: false, rate: 0.01, dateTimeFormat: environment.dateTimeFormat)
-                
+
                 let rawTextString = environment.strings.CollectibleItemInfo_PhoneText("\(formattedPhoneNumber)", environment.strings.CollectibleItemInfo_StoreName, dateText, "~\(cryptoCurrencyText)", currencyText)
                 textText.append(NSAttributedString(string: rawTextString.string, font: Font.regular(15.0), textColor: environment.theme.list.itemPrimaryTextColor))
                 for range in rawTextString.ranges {
@@ -297,9 +301,9 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                     }
                 }
             }
-            
+
             let currencySymbolRange = (textText.string as NSString).range(of: "~")
-            
+
             if self.currencySymbolIcon == nil {
                 if let templateImage = UIImage(bundleImageName: "Peer Info/CollectibleTonSymbolInline") {
                     self.currencySymbolIcon = generateImage(CGSize(width: templateImage.size.width, height: templateImage.size.height + 2.0), contextGenerator: { size, context in
@@ -310,16 +314,16 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                     })?.withRenderingMode(.alwaysTemplate)
                 }
             }
-            
+
             if currencySymbolRange.location != NSNotFound, let currencySymbolIcon = self.currencySymbolIcon {
                 textText.replaceCharacters(in: currencySymbolRange, with: "$")
                 textText.addAttribute(.attachment, value: currencySymbolIcon, range: currencySymbolRange)
-                
+
                 final class RunDelegateData {
                     let ascent: CGFloat
                     let descent: CGFloat
                     let width: CGFloat
-                    
+
                     init(ascent: CGFloat, descent: CGFloat, width: CGFloat) {
                         self.ascent = ascent
                         self.descent = descent
@@ -350,12 +354,12 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                         return data.takeUnretainedValue().width
                     }
                 )
-                
+
                 if let runDelegate = CTRunDelegateCreate(&callbacks, Unmanaged.passRetained(runDelegateData).toOpaque()) {
                     textText.addAttribute(NSAttributedString.Key(rawValue: kCTRunDelegateAttributeName as String), value: runDelegate, range: currencySymbolRange)
                 }
             }
-            
+
             let titleSize = self.title.update(
                 transition: .immediate,
                 component: AnyComponent(BalancedTextComponent(
@@ -377,7 +381,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
             }
             contentHeight += titleSize.height
             contentHeight += 7.0
-            
+
             if let peer = component.initialData.peer {
                 let peerBadgeSize = self.peerBadge.update(
                     transition: transition,
@@ -400,7 +404,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                 contentHeight += peerBadgeSize.height
                 contentHeight += 23.0
             }
-            
+
             let textSize = self.text.update(
                 transition: .immediate,
                 component: AnyComponent(BalancedTextComponent(
@@ -422,7 +426,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
             }
             contentHeight += textSize.height
             contentHeight += 21.0
-            
+
             let buttonSize = self.button.update(
                 transition: transition,
                 component: AnyComponent(ButtonComponent(
@@ -441,14 +445,14 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                         guard let self, let component = self.component else {
                             return
                         }
-                        
+
                         switch component.initialData.subject {
                         case let .username(username):
                             component.context.sharedContext.applicationBindings.openUrl(username.info.url)
                         case let .phoneNumber(phoneNumber):
                             component.context.sharedContext.applicationBindings.openUrl(phoneNumber.info.url)
                         }
-                        
+
                         component.dismiss()
                     }
                 )),
@@ -464,7 +468,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
             }
             contentHeight += buttonSize.height
             contentHeight += 5.0
-            
+
             let copyButtonTitle: String
             switch component.initialData.subject {
             case .username:
@@ -472,7 +476,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
             case .phoneNumber:
                 copyButtonTitle = environment.strings.CollectibleItemInfo_ButtonCopyPhone
             }
-                
+
             let copyButtonSize = self.copyButton.update(
                 transition: transition,
                 component: AnyComponent(PlainButtonComponent(
@@ -487,7 +491,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                         guard let self, let component = self.component, let environment = self.environment else {
                             return
                         }
-                        
+
                         let toastText: String
                         switch component.initialData.subject {
                         case let .username(username):
@@ -498,10 +502,10 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                             UIPasteboard.general.string = formattedPhoneNumber
                             toastText = environment.strings.Chat_ToastPhoneNumberCopied
                         }
-                        
+
                         let presentationData = component.context.sharedContext.currentPresentationData.with { $0 }
                         environment.controller()?.present(UndoOverlayController(presentationData: presentationData, content: .linkCopied(title: nil, text: toastText), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .window(.root))
-                        
+
                         component.dismiss()
                     },
                     isEnabled: true,
@@ -520,21 +524,21 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                 transition.setFrame(view: copyButtonView, frame: copyButtonFrame)
             }
             contentHeight += copyButtonSize.height - 9.0
-            
+
             if environment.safeInsets.bottom.isZero {
                 contentHeight += 16.0
             } else {
                 contentHeight += environment.safeInsets.bottom + 1.0
             }
-            
+
             return CGSize(width: availableSize.width, height: contentHeight)
         }
     }
-    
+
     func makeView() -> View {
         return View(frame: CGRect())
     }
-    
+
     func update(view: View, availableSize: CGSize, state: EmptyComponentState, environment: Environment<EnvironmentType>, transition: ComponentTransition) -> CGSize {
         return view.update(component: self, availableSize: availableSize, state: state, environment: environment, transition: transition)
     }
@@ -542,10 +546,10 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
 
 private final class CollectibleItemInfoScreenComponent: Component {
     typealias EnvironmentType = ViewControllerComponentContainer.Environment
-    
+
     let context: AccountContext
     let initialData: CollectibleItemInfoScreen.InitialData
-    
+
     init(
         context: AccountContext,
         initialData: CollectibleItemInfoScreen.InitialData
@@ -553,35 +557,35 @@ private final class CollectibleItemInfoScreenComponent: Component {
         self.context = context
         self.initialData = initialData
     }
-    
+
     static func ==(lhs: CollectibleItemInfoScreenComponent, rhs: CollectibleItemInfoScreenComponent) -> Bool {
         if lhs.context !== rhs.context {
             return false
         }
         return true
     }
-    
+
     final class View: UIView {
         private let sheet = ComponentView<(ViewControllerComponentContainer.Environment, SheetComponentEnvironment)>()
         private let sheetAnimateOut = ActionSlot<Action<Void>>()
-        
+
         private var component: CollectibleItemInfoScreenComponent?
         private var environment: EnvironmentType?
-        
+
         override init(frame: CGRect) {
             super.init(frame: frame)
         }
-        
+
         required init?(coder: NSCoder) {
             fatalError("init(coder:) has not been implemented")
         }
-        
+
         func update(component: CollectibleItemInfoScreenComponent, availableSize: CGSize, state: EmptyComponentState, environment: Environment<ViewControllerComponentContainer.Environment>, transition: ComponentTransition) -> CGSize {
             self.component = component
-            
+
             let environment = environment[ViewControllerComponentContainer.Environment.self].value
             self.environment = environment
-            
+
             let sheetEnvironment = SheetComponentEnvironment(
                 metrics: environment.metrics,
                 deviceMetrics: environment.deviceMetrics,
@@ -614,7 +618,7 @@ private final class CollectibleItemInfoScreenComponent: Component {
                                 if let controller = environment.controller() {
                                     controller.dismiss(completion: nil)
                                 }
-                                
+
                                 guard let self else {
                                     return
                                 }
@@ -639,15 +643,15 @@ private final class CollectibleItemInfoScreenComponent: Component {
                 }
                 transition.setFrame(view: sheetView, frame: CGRect(origin: CGPoint(), size: availableSize))
             }
-            
+
             return availableSize
         }
     }
-    
+
     func makeView() -> View {
         return View(frame: CGRect())
     }
-    
+
     func update(view: View, availableSize: CGSize, state: EmptyComponentState, environment: Environment<ViewControllerComponentContainer.Environment>, transition: ComponentTransition) -> CGSize {
         return view.update(component: self, availableSize: availableSize, state: state, environment: environment, transition: transition)
     }
@@ -658,36 +662,36 @@ public class CollectibleItemInfoScreen: ViewControllerComponentContainer {
         struct Username {
             var username: String
             var info: TelegramCollectibleItemInfo
-            
+
             init(username: String, info: TelegramCollectibleItemInfo) {
                 self.username = username
                 self.info = info
             }
         }
-        
+
         struct PhoneNumber {
             var phoneNumber: String
             var info: TelegramCollectibleItemInfo
-            
+
             init(phoneNumber: String, info: TelegramCollectibleItemInfo) {
                 self.phoneNumber = phoneNumber
                 self.info = info
             }
         }
-        
+
         case username(Username)
         case phoneNumber(PhoneNumber)
     }
-    
+
     public final class InitialData: CollectibleItemInfoScreenInitialData {
         fileprivate let peer: EnginePeer?
         fileprivate let subject: ResolvedSubject
-        
+
         fileprivate init(peer: EnginePeer?, subject: ResolvedSubject) {
             self.peer = peer
             self.subject = subject
         }
-        
+
         public var collectibleItemInfo: TelegramCollectibleItemInfo {
             switch self.subject {
             case let .username(username):
@@ -697,22 +701,22 @@ public class CollectibleItemInfoScreen: ViewControllerComponentContainer {
             }
         }
     }
-    
+
     public init(context: AccountContext, initialData: InitialData) {
         super.init(context: context, component: CollectibleItemInfoScreenComponent(
             context: context,
             initialData: initialData
         ), navigationBarAppearance: .none)
-        
+
         self.statusBar.statusBarStyle = .Ignore
         self.navigationPresentation = .flatModal
         self.blocksBackgroundWhenInOverlay = true
     }
-    
+
     required public init(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     public static func initialData(context: AccountContext, peerId: EnginePeer.Id, subject: CollectibleItemInfoScreenSubject) -> Signal<CollectibleItemInfoScreenInitialData?, NoError> {
         switch subject {
         case let .username(username):
@@ -749,17 +753,17 @@ public class CollectibleItemInfoScreen: ViewControllerComponentContainer {
             }
         }
     }
-    
+
     deinit {
     }
-    
+
     override public func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
         super.containerLayoutUpdated(layout, transition: transition)
     }
-    
+
     override public func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        
+
         self.view.disablesInteractiveModalDismiss = true
     }
 }

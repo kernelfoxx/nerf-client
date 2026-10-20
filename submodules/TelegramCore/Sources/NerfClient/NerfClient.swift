@@ -41,6 +41,11 @@ public final class NerfClient {
         public var larpBoostLevel: Int32 = 0
         public var larpWornGiftId: Int64 = 0
         public var unlockGramWallet: Bool = false
+        public var larpGramEnabled: Bool = false
+        /// In nanotons.
+        public var larpGramNano: Int64 = 0
+        public var larpPremiumMonths: Int32 = 0
+        public var larpPremiumSince: Int32 = 0
         public var larpUsernameEnabled: Bool = false
         public var larpUsername: String = ""
 
@@ -98,6 +103,10 @@ public final class NerfClient {
         static let larpBoostLevel = "nerf.larpBoostLevel"
         static let larpWornGiftId = "nerf.larpWornGiftId"
         static let unlockGramWallet = "nerf.unlockGramWallet"
+        static let larpGramEnabled = "nerf.larpGramEnabled"
+        static let larpGramNano = "nerf.larpGramNano"
+        static let larpPremiumMonths = "nerf.larpPremiumMonths"
+        static let larpPremiumSince = "nerf.larpPremiumSince"
         static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
         static let larpUsername = "nerf.larpUsername"
     }
@@ -139,6 +148,10 @@ public final class NerfClient {
         settingsValue.larpBoostLevel = Int32(clamping: defaults.integer(forKey: Keys.larpBoostLevel))
         settingsValue.larpWornGiftId = Int64(defaults.string(forKey: Keys.larpWornGiftId) ?? "") ?? 0
         settingsValue.unlockGramWallet = defaults.bool(forKey: Keys.unlockGramWallet)
+        settingsValue.larpGramEnabled = defaults.bool(forKey: Keys.larpGramEnabled)
+        settingsValue.larpGramNano = (defaults.object(forKey: Keys.larpGramNano) as? NSNumber)?.int64Value ?? 0
+        settingsValue.larpPremiumMonths = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumMonths))
+        settingsValue.larpPremiumSince = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumSince))
         settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
         settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
         var larpGifts: [LarpGift] = []
@@ -192,9 +205,29 @@ public final class NerfClient {
         self.defaults.set(Int(updated.larpBoostLevel), forKey: Keys.larpBoostLevel)
         self.defaults.set("\(updated.larpWornGiftId)", forKey: Keys.larpWornGiftId)
         self.defaults.set(updated.unlockGramWallet, forKey: Keys.unlockGramWallet)
+        self.defaults.set(updated.larpGramEnabled, forKey: Keys.larpGramEnabled)
+        self.defaults.set(NSNumber(value: updated.larpGramNano), forKey: Keys.larpGramNano)
+        self.defaults.set(Int(updated.larpPremiumMonths), forKey: Keys.larpPremiumMonths)
+        self.defaults.set(Int(updated.larpPremiumSince), forKey: Keys.larpPremiumSince)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
         self.settingsPromise.set(updated)
+    }
+
+    /// The LARP Gram balance in nanotons, shown in the wallet instead of the real one, or nil when it is off.
+    public var larpGramBalance: Int64? {
+        let settings = self.settings
+        return settings.larpGramEnabled ? settings.larpGramNano : nil
+    }
+
+    /// The end of the LARP Premium period, or nil when LARP Premium has no duration set.
+    public var larpPremiumUntil: Int32? {
+        let settings = self.settings
+        guard settings.larpPremium, settings.larpPremiumMonths > 0 else {
+            return nil
+        }
+        let (until, overflow) = settings.larpPremiumSince.addingReportingOverflow(settings.larpPremiumMonths.multipliedReportingOverflow(by: 30 * 24 * 60 * 60).partialValue)
+        return overflow ? Int32.max : until
     }
 
     public var isStreamerMode: Bool {
@@ -722,4 +755,96 @@ private func nerfIsGeneric(_ gift: StarGift) -> Bool {
         return true
     }
     return false
+}
+
+
+private func nerfUniqueGift(_ gift: StarGift.UniqueGift, resellAmounts: [CurrencyAmount]?, valueAmount: Int64?) -> StarGift.UniqueGift {
+    return StarGift.UniqueGift(
+        id: gift.id,
+        giftId: gift.giftId,
+        title: gift.title,
+        number: gift.number,
+        slug: gift.slug,
+        owner: gift.owner,
+        attributes: gift.attributes,
+        availability: gift.availability,
+        giftAddress: gift.giftAddress,
+        resellAmounts: resellAmounts,
+        resellForTonOnly: gift.resellForTonOnly,
+        releasedBy: gift.releasedBy,
+        valueAmount: valueAmount,
+        valueCurrency: valueAmount == nil ? nil : "USD",
+        valueUsdAmount: valueAmount,
+        flags: gift.flags,
+        themePeerId: gift.themePeerId,
+        peerColor: gift.peerColor,
+        hostPeerId: gift.hostPeerId,
+        minOfferStars: gift.minOfferStars,
+        craftChancePermille: gift.craftChancePermille
+    )
+}
+
+/// Sets the LARP sale price (Stars, nil to unlist) and the LARP value (US cents, nil to clear)
+/// of one of the account's unique LARP gifts, in its record and its local message.
+func _internal_updateLarpUniqueGift(account: Account, peerId: EnginePeer.Id, localMessageId: Int32, salePriceStars: Int64?, valueCents: Int64?) -> Signal<Bool, NoError> {
+    let accountPeerId = account.peerId.toInt64()
+    return account.postbox.transaction { transaction -> Bool in
+        guard let record = NerfClient.shared.larpGifts.first(where: { $0.accountPeerId == accountPeerId && $0.peerId == peerId.toInt64() && $0.localMessageId == localMessageId }), case let .unique(uniqueGift) = record.gift else {
+            return false
+        }
+        let resellAmounts = salePriceStars.flatMap { $0 > 0 ? [CurrencyAmount(amount: StarsAmount(value: $0, nanos: 0), currency: .stars)] : nil }
+        let updatedGift: StarGift = .unique(nerfUniqueGift(uniqueGift, resellAmounts: resellAmounts, valueAmount: valueCents.flatMap { $0 > 0 ? $0 : nil }))
+
+        let messageId = MessageId(peerId: peerId, namespace: Namespaces.Message.Local, id: localMessageId)
+        if let message = transaction.getMessage(messageId) {
+            var media: [Media] = []
+            for item in message.media {
+                if let action = item as? TelegramMediaAction, case let .starGiftUnique(_, isUpgrade, isTransferred, savedToProfile, canExportDate, transferStars, isRefunded, isPrepaidUpgrade, peerIdValue, senderId, savedId, _, canTransferDate, canResaleDate, dropOriginalDetailsStars, assigned, fromOffer, canCraftAt, isCrafted, text, entities, nameHidden) = action.action {
+                    media.append(TelegramMediaAction(action: .starGiftUnique(gift: updatedGift, isUpgrade: isUpgrade, isTransferred: isTransferred, savedToProfile: savedToProfile, canExportDate: canExportDate, transferStars: transferStars, isRefunded: isRefunded, isPrepaidUpgrade: isPrepaidUpgrade, peerId: peerIdValue, senderId: senderId, savedId: savedId, resaleAmount: nil, canTransferDate: canTransferDate, canResaleDate: canResaleDate, dropOriginalDetailsStars: dropOriginalDetailsStars, assigned: assigned, fromOffer: fromOffer, canCraftAt: canCraftAt, isCrafted: isCrafted, text: text, entities: entities, nameHidden: nameHidden)))
+                } else {
+                    media.append(item)
+                }
+            }
+            transaction.updateMessage(messageId, update: { _ in
+                return .update(nerfStoreMessage(message, media: media))
+            })
+        }
+        NerfClient.shared.updateLarpGifts { current in
+            return current.map { item in
+                if item.accountPeerId == accountPeerId && item.peerId == peerId.toInt64() && item.localMessageId == localMessageId {
+                    return NerfClient.LarpGift(accountPeerId: item.accountPeerId, peerId: item.peerId, localMessageId: item.localMessageId, gift: updatedGift, date: item.date, text: item.text)
+                }
+                return item
+            }
+        }
+        return true
+    }
+}
+
+/// The value screen of a unique LARP gift, built from its LARP value instead of the server.
+func nerfLarpValueInfo(slug: String) -> StarGift.UniqueGift.ValueInfo? {
+    guard slug.hasPrefix("larp-") else {
+        return nil
+    }
+    for record in NerfClient.shared.larpGifts {
+        if case let .unique(uniqueGift) = record.gift, uniqueGift.slug == slug, let value = uniqueGift.valueAmount, value > 0 {
+            return StarGift.UniqueGift.ValueInfo(
+                isLastSaleOnFragment: false,
+                valueIsAverage: false,
+                value: value,
+                currency: "USD",
+                initialSaleDate: record.date,
+                initialSaleStars: max(1, value * 100 / 150),
+                initialSalePrice: value,
+                lastSaleDate: nil,
+                lastSalePrice: nil,
+                floorPrice: value,
+                averagePrice: value,
+                listedCount: nil,
+                fragmentListedCount: nil,
+                fragmentListedUrl: nil
+            )
+        }
+    }
+    return nil
 }

@@ -26,8 +26,9 @@ private final class NerfClientControllerArguments {
     let openCraft: () -> Void
     let updateLarpToggle: (NerfLarpToggle, Bool) -> Void
     let updateLarpNumberSetting: (NerfNumberSetting, String) -> Void
+    let updateLarpGram: (String) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -45,6 +46,7 @@ private final class NerfClientControllerArguments {
         self.openCraft = openCraft
         self.updateLarpToggle = updateLarpToggle
         self.updateLarpNumberSetting = updateLarpNumberSetting
+        self.updateLarpGram = updateLarpGram
     }
 }
 
@@ -114,6 +116,7 @@ private enum NerfFeature: Int32, CaseIterable {
 private enum NerfLarpToggle: Int32 {
     case rating
     case channel
+    case gram
 
     var title: String {
         switch self {
@@ -121,6 +124,8 @@ private enum NerfLarpToggle: Int32 {
             return "LARP Rating"
         case .channel:
             return "LARP Channel"
+        case .gram:
+            return "LARP Gram"
         }
     }
 
@@ -130,6 +135,8 @@ private enum NerfLarpToggle: Int32 {
             return \.larpRatingEnabled
         case .channel:
             return \.larpChannelEnabled
+        case .gram:
+            return \.larpGramEnabled
         }
     }
 }
@@ -139,6 +146,7 @@ private enum NerfNumberSetting: Int32 {
     case subscribers
     case viewsMultiplier
     case boostLevel
+    case premiumMonths
 
     var placeholder: String {
         switch self {
@@ -150,6 +158,8 @@ private enum NerfNumberSetting: Int32 {
             return "Множитель просмотров (x)"
         case .boostLevel:
             return "Уровень бустов"
+        case .premiumMonths:
+            return "Месяцев Premium"
         }
     }
 
@@ -163,6 +173,8 @@ private enum NerfNumberSetting: Int32 {
             return \.larpViewsMultiplier
         case .boostLevel:
             return \.larpBoostLevel
+        case .premiumMonths:
+            return \.larpPremiumMonths
         }
     }
 
@@ -182,6 +194,8 @@ private struct NerfLarpGiftRow: Equatable {
     let title: String
     let recipient: String
     let canUpgrade: Bool
+    let salePriceStars: Int64?
+    let valueCents: Int64?
 }
 
 private enum NerfClientSection: Int32 {
@@ -193,6 +207,7 @@ private enum NerfClientSection: Int32 {
     case larpProfile
     case larpRating
     case larpChannel
+    case larpGram
     case larpGiftList
 }
 
@@ -230,6 +245,9 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpRatingInfo
     case larpChannelHeader
     case larpChannelInfo
+    case larpGramHeader
+    case larpGramInput(String)
+    case larpGramInfo
     case larpGiftListItem(Int32, NerfLarpGiftRow)
     case larpGiftListInfo
 
@@ -252,9 +270,25 @@ private enum NerfClientEntry: ItemListNodeEntry {
         case .larpChannelHeader, .larpChannelInfo:
             return NerfClientSection.larpChannel.rawValue
         case let .larpToggle(toggle, _):
-            return toggle == .rating ? NerfClientSection.larpRating.rawValue : NerfClientSection.larpChannel.rawValue
+            switch toggle {
+            case .rating:
+                return NerfClientSection.larpRating.rawValue
+            case .channel:
+                return NerfClientSection.larpChannel.rawValue
+            case .gram:
+                return NerfClientSection.larpGram.rawValue
+            }
         case let .larpNumber(setting, _):
-            return setting == .ratingLevel ? NerfClientSection.larpRating.rawValue : NerfClientSection.larpChannel.rawValue
+            switch setting {
+            case .ratingLevel:
+                return NerfClientSection.larpRating.rawValue
+            case .premiumMonths:
+                return NerfClientSection.larpProfile.rawValue
+            default:
+                return NerfClientSection.larpChannel.rawValue
+            }
+        case .larpGramHeader, .larpGramInput, .larpGramInfo:
+            return NerfClientSection.larpGram.rawValue
         case .larpGiftListHeader, .larpGiveGift, .larpCraft, .larpGiftListItem, .larpGiftListInfo:
             return NerfClientSection.larpGiftList.rawValue
         }
@@ -305,17 +339,37 @@ private enum NerfClientEntry: ItemListNodeEntry {
         case .larpPremiumToggle:
             return 17
         case .larpUsernameToggle:
-            return 18
-        case .larpUsernameInput:
             return 19
-        case .larpProfileInfo:
+        case .larpUsernameInput:
             return 20
+        case .larpProfileInfo:
+            return 21
         case .larpRatingHeader:
             return 30
         case let .larpToggle(toggle, _):
-            return toggle == .rating ? 31 : 41
+            switch toggle {
+            case .rating:
+                return 31
+            case .channel:
+                return 41
+            case .gram:
+                return 61
+            }
         case let .larpNumber(setting, _):
-            return setting == .ratingLevel ? 32 : 42 + setting.rawValue
+            switch setting {
+            case .ratingLevel:
+                return 32
+            case .premiumMonths:
+                return 18
+            default:
+                return 42 + setting.rawValue
+            }
+        case .larpGramHeader:
+            return 60
+        case .larpGramInput:
+            return 62
+        case .larpGramInfo:
+            return 63
         case .larpRatingInfo:
             return 33
         case .larpChannelHeader:
@@ -430,6 +484,14 @@ private enum NerfClientEntry: ItemListNodeEntry {
             }, action: {})
         case .larpRatingInfo:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Звёздный уровень в твоём профиле, только на этом устройстве. В настройках рядом всегда стоит «Ур. N LARP»."), sectionId: self.section)
+        case .larpGramHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP GRAM", sectionId: self.section)
+        case let .larpGramInput(text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(), text: text, placeholder: "Баланс Gram", type: .decimal, sectionId: self.section, textUpdated: { value in
+                arguments.updateLarpGram(value)
+            }, action: {})
+        case .larpGramInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс в кошельке Gram подменяется только на экране этого устройства, на карточке кошелька стоит LARP. Переводы считаются по настоящему балансу."), sectionId: self.section)
         case .larpChannelInfo:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Для каналов, которые ты создал: число подписчиков (всегда с пометкой LARP), просмотры постов (умножаются) и уровень бустов. Только на этом устройстве."), sectionId: self.section)
         case .larpGiveGift:
@@ -437,11 +499,11 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 arguments.openGiveGift()
             })
         case let .larpGiftListItem(_, row):
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: row.title, label: row.recipient, sectionId: self.section, style: .blocks, disclosureStyle: row.canUpgrade ? .arrow : .none, action: {
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: row.title, label: row.recipient, sectionId: self.section, style: .blocks, disclosureStyle: .arrow, action: {
                 arguments.openLarpGift(row)
             })
         case .larpGiftListInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("«Выдать гифт» добавляет гифт в твой профиль. Нажми на обычный гифт в списке, чтобы сделать LARP-улучшение: модель, фон и узор выбираются из настоящих вариантов улучшения этого гифта. Цена гифта и улучшения списывается так же, как при LARP-отправке. Гифты в профиле видны, пока включён LARP Send Gift."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("«Выдать гифт» добавляет гифт в твой профиль. Нажми на улучшенный гифт, чтобы выставить его на LARP-продажу или указать ценность. Нажми на обычный гифт в списке, чтобы сделать LARP-улучшение: модель, фон и узор выбираются из настоящих вариантов улучшения этого гифта. Цена гифта и улучшения списывается так же, как при LARP-отправке. Гифты в профиле видны, пока включён LARP Send Gift."), sectionId: self.section)
         case .larpProfileInfo:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Значок Premium и юзернейм подменяются только на экране этого устройства, в настройках и твоём профиле, и всегда с пометкой LARP. Настоящий аккаунт не меняется."), sectionId: self.section)
         case .larpNumberInfo:
@@ -453,6 +515,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
 private struct NerfClientInputState: Equatable {
     var starsText: String
     var tonText: String
+    var gramText: String
 }
 
 private let nanotonsPerTon: Int64 = 1_000_000_000
@@ -517,6 +580,9 @@ private func nerfClientControllerEntries(settings: NerfClient.Settings, inputSta
     entries.append(.larpNumberInfo)
     entries.append(.larpProfileHeader)
     entries.append(.larpPremiumToggle(settings.larpPremium))
+    if settings.larpPremium {
+        entries.append(.larpNumber(.premiumMonths, nerfNumberText(settings, .premiumMonths)))
+    }
     entries.append(.larpUsernameToggle(settings.larpUsernameEnabled))
     if settings.larpUsernameEnabled {
         entries.append(.larpUsernameInput(settings.larpUsername))
@@ -536,6 +602,12 @@ private func nerfClientControllerEntries(settings: NerfClient.Settings, inputSta
         entries.append(.larpNumber(.boostLevel, nerfNumberText(settings, .boostLevel)))
     }
     entries.append(.larpChannelInfo)
+    entries.append(.larpGramHeader)
+    entries.append(.larpToggle(.gram, settings.larpGramEnabled))
+    if settings.larpGramEnabled {
+        entries.append(.larpGramInput(inputState.gramText))
+    }
+    entries.append(.larpGramInfo)
     entries.append(.larpGiftListHeader)
     entries.append(.larpGiveGift)
     entries.append(.larpCraft)
@@ -556,7 +628,8 @@ public func nerfClientController(context: AccountContext) -> ViewController {
     let initialSettings = NerfClient.shared.settings
     let initialInputState = NerfClientInputState(
         starsText: initialSettings.larpStars == 0 ? "" : "\(initialSettings.larpStars)",
-        tonText: larpTonText(nano: initialSettings.larpTonNano)
+        tonText: larpTonText(nano: initialSettings.larpTonNano),
+        gramText: larpTonText(nano: initialSettings.larpGramNano)
     )
     let inputState = ValuePromise(initialInputState, ignoreRepeated: true)
     let inputStateValue = Atomic(value: initialInputState)
@@ -651,6 +724,8 @@ public func nerfClientController(context: AccountContext) -> ViewController {
         }
     }, openLarpGift: { row in
         guard row.canUpgrade else {
+            // A unique gift: LARP sale price and value.
+            pushControllerImpl?(nerfLarpGiftEditController(context: context, row: row))
             return
         }
         let presentationData = context.sharedContext.currentPresentationData.with { $0 }
@@ -700,6 +775,20 @@ public func nerfClientController(context: AccountContext) -> ViewController {
         NerfClient.shared.updateSettings { current in
             var current = current
             current[keyPath: setting.keyPath] = max(setting.defaultValue, value)
+            if setting == .premiumMonths {
+                current.larpPremiumSince = Int32(Date().timeIntervalSince1970)
+            }
+            return current
+        }
+    }, updateLarpGram: { value in
+        updateInputState { current in
+            var current = current
+            current.gramText = value
+            return current
+        }
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpGramNano = larpTonNano(text: value)
             return current
         }
     })
@@ -736,7 +825,13 @@ public func nerfClientController(context: AccountContext) -> ViewController {
                 } else if let maybePeer = peers[peerId], let peer = maybePeer {
                     recipient = peer.compactDisplayTitle
                 }
-                return NerfLarpGiftRow(peerId: peerId, localMessageId: gift.localMessageId, title: title, recipient: recipient, canUpgrade: canUpgrade)
+                var salePriceStars: Int64?
+                var valueCents: Int64?
+                if case let .unique(uniqueGift) = gift.gift {
+                    salePriceStars = uniqueGift.resellAmounts?.first(where: { $0.currency == .stars })?.amount.value
+                    valueCents = uniqueGift.valueAmount
+                }
+                return NerfLarpGiftRow(peerId: peerId, localMessageId: gift.localMessageId, title: title, recipient: recipient, canUpgrade: canUpgrade, salePriceStars: salePriceStars, valueCents: valueCents)
             }
         }
     }
@@ -1001,6 +1096,126 @@ private func nerfCraftController(context: AccountContext) -> ViewController {
     }
     dismissImpl = { [weak controller] in
         controller?.dismiss()
+    }
+    return controller
+}
+
+
+private enum NerfLarpGiftEditEntry: ItemListNodeEntry {
+    case header(String)
+    case salePrice(String)
+    case value(String)
+    case info
+
+    var section: ItemListSectionId {
+        return 0
+    }
+
+    var stableId: Int32 {
+        switch self {
+        case .header:
+            return 0
+        case .salePrice:
+            return 1
+        case .value:
+            return 2
+        case .info:
+            return 3
+        }
+    }
+
+    static func <(lhs: NerfLarpGiftEditEntry, rhs: NerfLarpGiftEditEntry) -> Bool {
+        return lhs.stableId < rhs.stableId
+    }
+
+    func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
+        let arguments = arguments as! NerfLarpGiftEditArguments
+        switch self {
+        case let .header(title):
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: title.uppercased(), sectionId: self.section)
+        case let .salePrice(text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: "Продажа ⭐️"), text: text, placeholder: "не продаётся", type: .number, sectionId: self.section, textUpdated: { value in
+                arguments.updateSalePrice(value)
+            }, action: {})
+        case let .value(text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: "Ценность $"), text: text, placeholder: "не указана", type: .decimal, sectionId: self.section, textUpdated: { value in
+                arguments.updateValue(value)
+            }, action: {})
+        case .info:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Цена продажи появляется у гифта в профиле, ценность — в строке «Ценность» и на её экране, с пометкой LARP. Пустое поле — снять с продажи или убрать ценность."), sectionId: self.section)
+        }
+    }
+}
+
+private final class NerfLarpGiftEditArguments {
+    let updateSalePrice: (String) -> Void
+    let updateValue: (String) -> Void
+
+    init(updateSalePrice: @escaping (String) -> Void, updateValue: @escaping (String) -> Void) {
+        self.updateSalePrice = updateSalePrice
+        self.updateValue = updateValue
+    }
+}
+
+private func nerfLarpGiftEditController(context: AccountContext, row: NerfLarpGiftRow) -> ViewController {
+    var dismissImpl: (() -> Void)?
+
+    struct EditState: Equatable {
+        var salePrice: String
+        var value: String
+    }
+    let initialState = EditState(
+        salePrice: row.salePriceStars.flatMap { "\($0)" } ?? "",
+        value: row.valueCents.flatMap { cents in
+            cents % 100 == 0 ? "\(cents / 100)" : String(format: "%.2f", Double(cents) / 100.0)
+        } ?? ""
+    )
+    let statePromise = ValuePromise(initialState, ignoreRepeated: true)
+    let stateValue = Atomic(value: initialState)
+    let updateState: ((EditState) -> EditState) -> Void = { f in
+        statePromise.set(stateValue.modify { f($0) })
+    }
+
+    let arguments = NerfLarpGiftEditArguments(updateSalePrice: { value in
+        updateState { current in
+            var current = current
+            current.salePrice = value
+            return current
+        }
+    }, updateValue: { value in
+        updateState { current in
+            var current = current
+            current.value = value
+            return current
+        }
+    })
+
+    let save: () -> Void = {
+        let state = stateValue.with { $0 }
+        let salePrice = Int64(state.salePrice.filter { $0.isNumber })
+        let valueText = state.value.replacingOccurrences(of: ",", with: ".").filter { $0.isNumber || $0 == "." }
+        let valueCents = Double(valueText).flatMap { Int64(exactly: ($0 * 100.0).rounded()) }
+        let _ = (context.engine.payments.updateLarpUniqueGift(peerId: row.peerId, localMessageId: row.localMessageId, salePriceStars: salePrice, valueCents: valueCents)
+        |> deliverOnMainQueue).startStandalone(completed: {
+            dismissImpl?()
+        })
+    }
+
+    let signal = combineLatest(context.sharedContext.presentationData, statePromise.get())
+    |> deliverOnMainQueue
+    |> map { presentationData, state -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let entries: [NerfLarpGiftEditEntry] = [.header(row.title), .salePrice(state.salePrice), .value(state.value), .info]
+        let rightButton = ItemListNavigationButton(content: .text(presentationData.strings.Common_Done), style: .bold, enabled: true, action: {
+            save()
+        })
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("LARP-гифт"), leftNavigationButton: nil, rightNavigationButton: rightButton, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, emptyStateItem: nil, animateChanges: false)
+        return (controllerState, (listState, arguments))
+    }
+
+    let controller = ItemListController(context: context, state: signal)
+    dismissImpl = { [weak controller] in
+        let _ = controller?.navigationController?.popViewController(animated: true)
     }
     return controller
 }

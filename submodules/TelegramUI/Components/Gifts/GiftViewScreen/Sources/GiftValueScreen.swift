@@ -28,13 +28,13 @@ import TableComponent
 
 private final class GiftValueSheetContent: CombinedComponent {
     typealias EnvironmentType = ViewControllerComponentContainer.Environment
-    
+
     let context: AccountContext
     let gift: StarGift
     let valueInfo: StarGift.UniqueGift.ValueInfo
     let animateOut: ActionSlot<Action<()>>
     let getController: () -> ViewController?
-    
+
     init(
         context: AccountContext,
         gift: StarGift,
@@ -48,7 +48,7 @@ private final class GiftValueSheetContent: CombinedComponent {
         self.animateOut = animateOut
         self.getController = getController
     }
-    
+
     static func ==(lhs: GiftValueSheetContent, rhs: GiftValueSheetContent) -> Bool {
         if lhs.context !== rhs.context {
             return false
@@ -61,29 +61,29 @@ private final class GiftValueSheetContent: CombinedComponent {
         }
         return true
     }
-    
+
     final class State: ComponentState {
         let lastSalePriceTag = GenericComponentViewTag()
         let floorPriceTag = GenericComponentViewTag()
         let averagePriceTag = GenericComponentViewTag()
-        
+
         private let context: AccountContext
         private let animateOut: ActionSlot<Action<()>>
         private let getController: () -> ViewController?
-        
+
         private var disposable: Disposable?
         var initialized = false
-        
+
         var starGiftsMap: [Int64: StarGift.Gift] = [:]
-        
+
         var cachedStarImage: (UIImage, PresentationTheme)?
         var cachedSmallStarImage: (UIImage, PresentationTheme)?
         var cachedSubtitleStarImage: (UIImage, PresentationTheme)?
         var cachedTonImage: (UIImage, PresentationTheme)?
-        
+
         var cachedChevronImage: (UIImage, PresentationTheme)?
         var cachedSmallChevronImage: (UIImage, PresentationTheme)?
-                                        
+
         init(
             context: AccountContext,
             animateOut: ActionSlot<Action<()>>,
@@ -92,9 +92,9 @@ private final class GiftValueSheetContent: CombinedComponent {
             self.context = context
             self.animateOut = animateOut
             self.getController = getController
-            
+
             super.init()
-            
+
             self.disposable = (context.engine.payments.cachedStarGifts()
             |> deliverOnMainQueue).startStrict(next: { [weak self] starGifts in
                 if let strongSelf = self {
@@ -111,28 +111,28 @@ private final class GiftValueSheetContent: CombinedComponent {
                 }
             })
         }
-        
+
         deinit {
             self.disposable?.dispose()
         }
-        
+
         func showAttributeInfo(tag: Any, text: String) {
             guard let controller = self.getController() as? GiftValueScreen else {
                 return
             }
             controller.dismissAllTooltips()
-            
+
             guard let sourceView = controller.node.hostView.findTaggedView(tag: tag), let absoluteLocation = sourceView.superview?.convert(sourceView.center, to: controller.view) else {
                 return
             }
-            
+
             let location = CGRect(origin: CGPoint(x: absoluteLocation.x, y: absoluteLocation.y - 12.0), size: CGSize())
             let tooltipController = TooltipScreen(account: self.context.account, sharedContext: self.context.sharedContext, text: .markdown(text: text), style: .wide, location: .point(location, .bottom), displayDuration: .default, inset: 16.0, shouldDismissOnTouch: { _, _ in
                 return .dismiss(consume: false)
             })
             controller.present(tooltipController, in: .current)
         }
-        
+
         func openGiftResale(gift: StarGift.Gift) {
             guard let controller = self.getController() as? GiftValueScreen else {
                 return
@@ -144,7 +144,7 @@ private final class GiftValueSheetContent: CombinedComponent {
             )
             controller.push(storeController)
         }
-        
+
         func openGiftFragmentResale(url: String) {
             guard let controller = self.getController() as? GiftValueScreen, let navigationController = controller.navigationController as? NavigationController else {
                 return
@@ -152,7 +152,7 @@ private final class GiftValueSheetContent: CombinedComponent {
             let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
             self.context.sharedContext.openExternalUrl(context: self.context, urlContext: .generic, url: url, forceExternal: true, presentationData: presentationData, navigationController: navigationController, dismissInput: {})
         }
-        
+
         func dismiss(animated: Bool) {
             guard let controller = self.getController() as? GiftValueScreen else {
                 return
@@ -167,46 +167,50 @@ private final class GiftValueSheetContent: CombinedComponent {
             }
         }
     }
-    
+
     func makeState() -> State {
         return State(context: self.context, animateOut: self.animateOut, getController: self.getController)
     }
-    
+
     static var body: Body {
         let closeButton = Child(GlassBarButtonComponent.self)
         let animation = Child(GiftCompositionComponent.self)
-        
+
         let titleBackground = Child(RoundedRectangle.self)
         let title = Child(MultilineTextComponent.self)
-        
+
         let description = Child(MultilineTextComponent.self)
-        
+
         let table = Child(TableComponent.self)
-        
+
         let telegramSaleButton = Child(PlainButtonComponent.self)
         let fragmentSaleButton = Child(PlainButtonComponent.self)
-        
+
         let giftCompositionExternalState = GiftCompositionComponent.ExternalState()
-        
+
         return { context in
             let environment = context.environment[ViewControllerComponentContainer.Environment.self].value
-            
+
             let component = context.component
             let theme = environment.theme
             let strings = environment.strings
             let dateTimeFormat = environment.dateTimeFormat
-            
+
             let state = context.state
-            
+
             let sideInset: CGFloat = 16.0 + environment.safeInsets.left
-            
-            let titleString: String = formatCurrencyAmount(component.valueInfo.value, currency: component.valueInfo.currency)
+
+            var titleString: String = formatCurrencyAmount(component.valueInfo.value, currency: component.valueInfo.currency)
+            // Nerf Client: a LARP gift's value always carries the LARP mark.
+            if case let .unique(uniqueGift) = component.gift, NerfClient.isLarpUniqueGift(uniqueGift) {
+                titleString += " \(NerfClient.larpMark)"
+            }
             var giftTitle: String = ""
             var giftCollectionTitle: String = ""
             var animationFile: TelegramMediaFile?
             var giftIconSubject: GiftItemComponent.Subject?
             var genericGift: StarGift.Gift?
-            
+
             switch component.gift {
             case let .generic(gift):
                 animationFile = gift.file
@@ -219,15 +223,15 @@ private final class GiftValueSheetContent: CombinedComponent {
                 }
                 giftCollectionTitle = gift.title
                 giftTitle = "\(gift.title) #\(formatCollectibleNumber(gift.number, dateTimeFormat: dateTimeFormat))"
-                
+
                 if let gift = state.starGiftsMap[gift.giftId] {
                     giftIconSubject = .starGift(gift: gift, price: "")
                     genericGift = gift
                 }
             }
-                 
+
             var originY: CGFloat = 0.0
-                        
+
             let headerHeight: CGFloat = 210.0
             let headerSubject: GiftCompositionComponent.Subject?
             if let animationFile {
@@ -235,7 +239,7 @@ private final class GiftValueSheetContent: CombinedComponent {
             } else {
                 headerSubject = nil
             }
-            
+
             if let headerSubject {
                 let animation = animation.update(
                     component: GiftCompositionComponent(
@@ -258,7 +262,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                 )
             }
             originY += headerHeight
-                       
+
             let title = title.update(
                 component: MultilineTextComponent(
                     text: .plain(NSAttributedString(
@@ -282,11 +286,11 @@ private final class GiftValueSheetContent: CombinedComponent {
             context.add(titleBackground
                 .position(CGPoint(x: context.availableSize.width / 2.0, y: 187.0))
             )
-            
+
             context.add(title
                 .position(CGPoint(x: context.availableSize.width / 2.0, y: 187.0))
             )
-                       
+
             var descriptionText: String
             if component.valueInfo.valueIsAverage {
                 descriptionText = strings.Gift_Value_DescriptionAveragePrice(giftCollectionTitle).string
@@ -305,15 +309,15 @@ private final class GiftValueSheetContent: CombinedComponent {
                 if state.cachedChevronImage == nil || state.cachedChevronImage?.1 !== environment.theme {
                     state.cachedChevronImage = (generateTintedImage(image: UIImage(bundleImageName: "Settings/TextArrowRight"), color: linkColor)!, theme)
                 }
-                
+
                 let textFont =  Font.regular(15.0)
                 let boldTextFont =  Font.semibold(15.0)
                 let textColor = theme.list.itemPrimaryTextColor
-                
+
                 let markdownAttributes = MarkdownAttributes(body: MarkdownAttributeSet(font: textFont, textColor: textColor), bold: MarkdownAttributeSet(font: boldTextFont, textColor: textColor), link: MarkdownAttributeSet(font: textFont, textColor: linkColor), linkAttribute: { contents in
                     return (TelegramTextAttributes.URL, contents)
                 })
-                
+
                 descriptionText = descriptionText.replacingOccurrences(of: " >]", with: "\u{00A0}>]")
                 let attributedString = parseMarkdownIntoAttributedString(descriptionText, attributes: markdownAttributes, textAlignment: .center).mutableCopy() as! NSMutableAttributedString
                 if let range = attributedString.string.range(of: "*"), let starImage = state.cachedSmallStarImage?.0 {
@@ -324,7 +328,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                 if let range = attributedString.string.range(of: ">"), let chevronImage = state.cachedChevronImage?.0 {
                     attributedString.addAttribute(.attachment, value: chevronImage, range: NSRange(range, in: attributedString.string))
                 }
-                
+
                 let description = description.update(
                     component: MultilineTextComponent(
                         text: .plain(attributedString),
@@ -356,12 +360,12 @@ private final class GiftValueSheetContent: CombinedComponent {
             } else {
                 originY += 9.0
             }
-                        
+
             let tableFont = Font.regular(15.0)
             let tableTextColor = theme.list.itemPrimaryTextColor
-    
+
             var tableItems: [TableComponent.Item] = []
-            
+
             tableItems.append(.init(
                 id: "initialDate",
                 title: strings.Gift_Value_InitialSale,
@@ -369,7 +373,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                     MultilineTextComponent(text: .plain(NSAttributedString(string: stringForMediumDate(timestamp: component.valueInfo.initialSaleDate, strings: strings, dateTimeFormat: dateTimeFormat), font: tableFont, textColor: tableTextColor)))
                 )
             ))
-                                    
+
             let valueString = "⭐️\(formatStarsAmountText(StarsAmount(value: component.valueInfo.initialSaleStars, nanos: 0), dateTimeFormat: dateTimeFormat)) (~\(formatCurrencyAmount(component.valueInfo.initialSalePrice, currency: component.valueInfo.currency)))"
             let valueAttributedString = NSMutableAttributedString(string: valueString, font: tableFont, textColor: tableTextColor)
             let range = (valueAttributedString.string as NSString).range(of: "⭐️")
@@ -377,7 +381,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                 valueAttributedString.addAttribute(ChatTextInputAttributes.customEmoji, value: ChatTextInputTextCustomEmojiAttribute(interactivelySelectedFromPackId: nil, fileId: 0, file: nil, custom: .stars(tinted: false)), range: range)
                 valueAttributedString.addAttribute(.baselineOffset, value: 1.0, range: range)
             }
-            
+
             tableItems.append(.init(
                 id: "initialPrice",
                 title: strings.Gift_Value_InitialPrice,
@@ -391,7 +395,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                 )),
                 insets: UIEdgeInsets(top: 0.0, left: 10.0, bottom: 0.0, right: 12.0)
             ))
-            
+
             if let lastSaleDate = component.valueInfo.lastSaleDate {
                 tableItems.append(.init(
                     id: "lastDate",
@@ -401,7 +405,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                     )
                 ))
             }
-            
+
             if let lastSalePrice = component.valueInfo.lastSalePrice {
                 let lastSalePriceString = formatCurrencyAmount(lastSalePrice, currency: component.valueInfo.currency)
                 let tag = state.lastSalePriceTag
@@ -414,10 +418,10 @@ private final class GiftValueSheetContent: CombinedComponent {
                         )
                     )
                 )
-                
+
                 let percentage = Int32(floor(Double(lastSalePrice) / Double(component.valueInfo.initialSalePrice) * 100.0 - 100.0))
                 let percentageString = (percentage > 0 ? "+\(percentage)" : "\(percentage)") + "%"
-                
+
                 items.append(AnyComponentWithIdentity(
                     id: AnyHashable(1),
                     component: AnyComponent(Button(
@@ -428,7 +432,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                         )),
                         action: { [weak state] in
                             state?.showAttributeInfo(tag: tag, text: strings.Gift_Value_LastPriceInfo(lastSalePriceString, giftCollectionTitle).string)
-                            
+
                         }
                     ).tagged(tag))
                 ))
@@ -442,7 +446,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                     component: itemComponent
                 ))
             }
-            
+
             if let floorPrice = component.valueInfo.floorPrice {
                 let floorPriceString = formatCurrencyAmount(floorPrice, currency: component.valueInfo.currency)
                 let tag = state.floorPriceTag
@@ -478,7 +482,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                     component: itemComponent
                 ))
             }
-                        
+
             if let averagePrice = component.valueInfo.averagePrice {
                 let averagePriceString = formatCurrencyAmount(averagePrice, currency: component.valueInfo.currency)
                 let tag = state.averagePriceTag
@@ -514,7 +518,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                     component: itemComponent
                 ))
             }
-                
+
             let table = table.update(
                 component: TableComponent(
                     theme: environment.theme,
@@ -529,11 +533,11 @@ private final class GiftValueSheetContent: CombinedComponent {
                 .disappear(.default(alpha: true))
             )
             originY += table.size.height + 23.0
-            
+
             if component.valueInfo.listedCount != nil || component.valueInfo.fragmentListedCount != nil {
                 originY += 5.0
             }
-                                      
+
             if let listedCount = component.valueInfo.listedCount, let giftIconSubject {
                 let telegramSaleButton = telegramSaleButton.update(
                     component: PlainButtonComponent(
@@ -581,12 +585,12 @@ private final class GiftValueSheetContent: CombinedComponent {
                 originY += telegramSaleButton.size.height
                 originY += 12.0
             }
-            
+
             if let listedCount = component.valueInfo.fragmentListedCount, let fragmentListedUrl = component.valueInfo.fragmentListedUrl, let giftIconSubject {
                 if component.valueInfo.listedCount != nil {
                     originY += 18.0
                 }
-                
+
                 let fragmentSaleButton = fragmentSaleButton.update(
                     component: PlainButtonComponent(
                         content: AnyComponent(
@@ -630,7 +634,7 @@ private final class GiftValueSheetContent: CombinedComponent {
                 originY += fragmentSaleButton.size.height
                 originY += 12.0
             }
-            
+
             let closeButton = closeButton.update(
                 component: GlassBarButtonComponent(
                     size: CGSize(width: 44.0, height: 44.0),
@@ -656,7 +660,7 @@ private final class GiftValueSheetContent: CombinedComponent {
             context.add(closeButton
                 .position(CGPoint(x: 16.0 + closeButton.size.width / 2.0, y: 16.0 + closeButton.size.height / 2.0))
             )
-            
+
             let effectiveBottomInset: CGFloat = environment.metrics.isTablet ? 0.0 : environment.safeInsets.bottom
             return CGSize(width: context.availableSize.width, height: originY + 5.0 + effectiveBottomInset)
         }
@@ -665,11 +669,11 @@ private final class GiftValueSheetContent: CombinedComponent {
 
 final class GiftValueSheetComponent: CombinedComponent {
     typealias EnvironmentType = ViewControllerComponentContainer.Environment
-    
+
     let context: AccountContext
     let gift: StarGift
     let valueInfo: StarGift.UniqueGift.ValueInfo
-    
+
     init(
         context: AccountContext,
         gift: StarGift,
@@ -679,7 +683,7 @@ final class GiftValueSheetComponent: CombinedComponent {
         self.gift = gift
         self.valueInfo = valueInfo
     }
-    
+
     static func ==(lhs: GiftValueSheetComponent, rhs: GiftValueSheetComponent) -> Bool {
         if lhs.context !== rhs.context {
             return false
@@ -692,17 +696,17 @@ final class GiftValueSheetComponent: CombinedComponent {
         }
         return true
     }
-    
+
     static var body: Body {
         let sheet = Child(SheetComponent<EnvironmentType>.self)
         let animateOut = StoredActionSlot(Action<Void>.self)
-        
+
         let sheetExternalState = SheetComponent<EnvironmentType>.ExternalState()
-        
+
         return { context in
             let environment = context.environment[EnvironmentType.self]
             let controller = environment.controller
-            
+
             let sheet = sheet.update(
                 component: SheetComponent<EnvironmentType>(
                     content: AnyComponent<EnvironmentType>(GiftValueSheetContent(
@@ -756,11 +760,11 @@ final class GiftValueSheetComponent: CombinedComponent {
                 availableSize: context.availableSize,
                 transition: context.transition
             )
-            
+
             context.add(sheet
                 .position(CGPoint(x: context.availableSize.width / 2.0, y: context.availableSize.height / 2.0))
             )
-            
+
             if let controller = controller(), !controller.automaticallyControlPresentationContextLayout {
                 var sideInset: CGFloat = 0.0
                 var bottomInset: CGFloat = max(environment.safeInsets.bottom, sheetExternalState.contentHeight)
@@ -768,7 +772,7 @@ final class GiftValueSheetComponent: CombinedComponent {
                     sideInset = floor((context.availableSize.width - 430.0) / 2.0) - 12.0
                     bottomInset = (context.availableSize.height - sheetExternalState.contentHeight) / 2.0 + sheetExternalState.contentHeight
                 }
-                
+
                 let layout = ContainerViewLayout(
                     size: context.availableSize,
                     metrics: environment.metrics,
@@ -784,7 +788,7 @@ final class GiftValueSheetComponent: CombinedComponent {
                 )
                 controller.presentationContext.containerLayoutUpdated(layout, transition: context.transition.containedViewLayoutTransition)
             }
-            
+
             return context.availableSize
         }
     }
@@ -794,7 +798,7 @@ final class GiftValueScreen: ViewControllerComponentContainer {
     private let context: AccountContext
     private let gift: StarGift
     private let valueInfo: StarGift.UniqueGift.ValueInfo
-    
+
     public init(
         context: AccountContext,
         gift: StarGift,
@@ -803,7 +807,7 @@ final class GiftValueScreen: ViewControllerComponentContainer {
         self.context = context
         self.gift = gift
         self.valueInfo = valueInfo
-        
+
         super.init(
             context: context,
             component: GiftValueSheetComponent(
@@ -815,29 +819,29 @@ final class GiftValueScreen: ViewControllerComponentContainer {
             statusBarStyle: .ignore,
             theme: .default
         )
-        
+
         self.navigationPresentation = .flatModal
         self.automaticallyControlPresentationContextLayout = false
     }
-    
+
     required public init(coder aDecoder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-    
+
     deinit {
     }
-    
+
     public override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         self.view.disablesInteractiveModalDismiss = true
     }
-    
+
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         self.dismissAllTooltips()
     }
-        
+
     public func dismissAnimated() {
         self.dismissAllTooltips()
 
@@ -845,7 +849,7 @@ final class GiftValueScreen: ViewControllerComponentContainer {
             view.dismissAnimated()
         }
     }
-            
+
     fileprivate func dismissAllTooltips() {
         self.window?.forEachController({ controller in
             if let controller = controller as? TooltipScreen {

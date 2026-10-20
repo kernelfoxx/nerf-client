@@ -1890,7 +1890,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             })
         }
 
-        
+
         func openUpgradeVariants(attribute: StarGift.UniqueGift.Attribute? = nil) {
             guard let controller = self.getController() as? GiftViewScreen else {
                 return
@@ -1954,7 +1954,7 @@ private final class GiftViewSheetContent: CombinedComponent {
                 return
             }
 
-            
+
             guard let arguments = self.subject.arguments, case let .unique(gift) = arguments.gift else {
                 return
             }
@@ -5220,7 +5220,7 @@ private final class GiftViewSheetContent: CombinedComponent {
                                 HStack([
                                     AnyComponentWithIdentity(
                                         id: AnyHashable(0),
-                                        component: AnyComponent(MultilineTextComponent(text: .plain(NSAttributedString(string: "~\(formatCurrencyAmount(valueAmount, currency: valueCurrency))", font: tableFont, textColor: tableTextColor))))
+                                        component: AnyComponent(MultilineTextComponent(text: .plain(NSAttributedString(string: "~\(formatCurrencyAmount(valueAmount, currency: valueCurrency))\(NerfClient.isLarpUniqueGift(uniqueGift) ? " \(NerfClient.larpMark)" : "")", font: tableFont, textColor: tableTextColor))))
                                     ),
                                     AnyComponentWithIdentity(
                                         id: AnyHashable(1),
@@ -5954,7 +5954,7 @@ private final class GiftViewSheetContent: CombinedComponent {
                 let buttonTitle = subject.arguments?.upgradeStars != nil ? strings.Gift_Upgrade_Confirm : buyString
                 let buttonAttributedString = NSMutableAttributedString(string: buttonTitle, font: Font.semibold(17.0), textColor: theme.list.itemCheckColors.foregroundColor, paragraphAlignment: .center)
 
-                
+
                 if let range = buttonAttributedString.string.range(of: "#"), let starImage = state.cachedStarImage?.0 {
                     buttonAttributedString.addAttribute(.attachment, value: starImage, range: NSRange(range, in: buttonAttributedString.string))
                     buttonAttributedString.addAttribute(.foregroundColor, value: theme.list.itemCheckColors.foregroundColor, range: NSRange(range, in: buttonAttributedString.string))

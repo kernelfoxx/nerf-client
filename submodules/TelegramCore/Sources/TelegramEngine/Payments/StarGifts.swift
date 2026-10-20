@@ -3712,6 +3712,10 @@ func _internal_getUniqueStarGift(account: Account, slug: String) -> Signal<StarG
 }
 
 func _internal_getUniqueStarGiftValueInfo(account: Account, slug: String) -> Signal<StarGift.UniqueGift.ValueInfo?, NoError> {
+    // Nerf Client: LARP gifts have a local value.
+    if slug.hasPrefix("larp-") {
+        return .single(nerfLarpValueInfo(slug: slug))
+    }
     return account.network.request(Api.functions.payments.getUniqueStarGiftValueInfo(slug: slug))
     |> map(Optional.init)
     |> `catch` { _ -> Signal<Api.payments.UniqueStarGiftValueInfo?, NoError> in
