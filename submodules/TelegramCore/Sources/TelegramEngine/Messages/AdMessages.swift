@@ -640,7 +640,9 @@ public class AdMessagesHistoryContext {
             
             self.impl.with { impl in
                 let stateDisposable = impl.state.get().start(next: { state in
-                    subscriber.putNext((state.interPostInterval, state.messages, state.startDelay, state.betweenDelay))
+                    // Nerf Client: with Hide Ads on, no sponsored messages are shown.
+                    let messages = NerfClient.shared.settings.hideAds ? [] : state.messages
+                    subscriber.putNext((state.interPostInterval, messages, state.startDelay, state.betweenDelay))
                 })
                 disposable.set(stateDisposable)
             }

@@ -107,7 +107,7 @@ public func stringForMessageTimestampStatus(
         timestamp = orignalDate
     }
     
-    var dateText = stringForMessageTimestamp(timestamp: timestamp, dateTimeFormat: dateTimeFormat)
+    var dateText = stringForMessageTimestamp(timestamp: timestamp, dateTimeFormat: dateTimeFormat, withSeconds: NerfClient.shared.settings.showSeconds)
     if timestamp == scheduleWhenOnlineTimestamp {
         dateText = "         "
     }

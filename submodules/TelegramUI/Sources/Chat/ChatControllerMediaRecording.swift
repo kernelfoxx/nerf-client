@@ -248,6 +248,10 @@ extension ChatControllerImpl {
     
     func dismissMediaRecorder(_ action: ChatFinishMediaRecordingAction) {
         var updatedAction = action
+        // Nerf Client: with Confirm Voice on, a finished recording opens as a preview to send by hand.
+        if NerfClient.shared.settings.confirmVoice, case .send = updatedAction {
+            updatedAction = .preview
+        }
         var isScheduledMessages = false
         if case .scheduledMessages = self.presentationInterfaceState.subject {
             isScheduledMessages = true

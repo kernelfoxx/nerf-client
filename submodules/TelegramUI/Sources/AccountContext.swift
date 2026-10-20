@@ -1009,6 +1009,21 @@ public final class AccountContextImpl: AccountContext {
     }
     
     public func requestCall(peerId: PeerId, isVideo: Bool, completion: @escaping () -> Void) {
+        // Nerf Client: with Confirm Calls on, ask before calling.
+        if NerfClient.shared.settings.confirmCalls {
+            let presentationData = self.sharedContext.currentPresentationData.with { $0 }
+            self.sharedContext.mainWindow?.present(textAlertController(context: self, title: nil, text: isVideo ? "Начать видеозвонок?" : "Позвонить?", actions: [
+                TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}),
+                TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: { [weak self] in
+                    self?.requestCallImpl(peerId: peerId, isVideo: isVideo, completion: completion)
+                })
+            ]), on: .root)
+            return
+        }
+        self.requestCallImpl(peerId: peerId, isVideo: isVideo, completion: completion)
+    }
+
+    private func requestCallImpl(peerId: PeerId, isVideo: Bool, completion: @escaping () -> Void) {
         guard let callResult = self.sharedContext.callManager?.requestCall(context: self, peerId: peerId, isVideo: isVideo, endCurrentIfAny: false) else {
             return
         }

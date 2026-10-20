@@ -580,6 +580,8 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
     var scheduledScrollToMessageId: (MessageId, NavigateToMessageParams)?
     
     public var purposefulAction: (() -> Void)?
+    /// Nerf Client: set while re-sending a sticker the user has just confirmed.
+    var nerfStickerConfirmed = false
     public var dismissPreviewing: ((Bool) -> (() -> Void))?
     
     var updatedClosedPinnedMessageId: ((MessageId) -> Void)?
@@ -2378,6 +2380,22 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
             }
         }, sendSticker: { [weak self] fileReference, silentPosting, schedule, query, clearInput, sourceView, sourceRect, sourceLayer, bubbleUpEmojiOrStickersets in
             guard let strongSelf = self else {
+                return false
+            }
+            
+            // Nerf Client: with Confirm Stickers on, ask first and send again once confirmed.
+            if NerfClient.shared.settings.confirmStickers && !strongSelf.nerfStickerConfirmed {
+                strongSelf.present(textAlertController(context: strongSelf.context, title: nil, text: "Отправить стикер?", actions: [
+                    TextAlertAction(type: .genericAction, title: strongSelf.presentationData.strings.Common_Cancel, action: {}),
+                    TextAlertAction(type: .defaultAction, title: strongSelf.presentationData.strings.Common_OK, action: { [weak self] in
+                        guard let self, let controllerInteraction = self.controllerInteraction else {
+                            return
+                        }
+                        self.nerfStickerConfirmed = true
+                        let _ = controllerInteraction.sendSticker(fileReference, silentPosting, schedule, query, clearInput, sourceView, sourceRect, sourceLayer, bubbleUpEmojiOrStickersets)
+                        self.nerfStickerConfirmed = false
+                    })
+                ]), in: .window(.root))
                 return false
             }
             

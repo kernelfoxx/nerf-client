@@ -108,6 +108,7 @@ func infoItems(
         let ItemAppFooter = 3005
         let ItemNerfUserId = 3100
         let ItemNerfRegistration = 3101
+        let ItemNerfDatacenter = 3102
         let ItemAffiliate = 4000
         let ItemAffiliateInfo = 4001
         let ItemBusinessHours = 5000
@@ -237,6 +238,13 @@ func infoItems(
                 interaction.requestLayout(animated)
             }))
 
+            // The data center that stores the profile photo is the user's own data center.
+            if let datacenterId = (user.photo.first?.resource as? CloudPeerPhotoSizeMediaResource)?.datacenterId {
+                items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemNerfDatacenter, label: "DC", text: "DC\(datacenterId)", textColor: .primary, action: nil, requestLayout: { animated in
+                    interaction.requestLayout(animated)
+                }))
+            }
+            
             if let registrationDate = (data.cachedData as? CachedUserData)?.peerStatusSettings?.registrationDate {
                 let components = registrationDate.components(separatedBy: ".")
                 if components.count == 2, let month = Int32(components[0]), let year = Int32(components[1]) {
@@ -866,6 +874,24 @@ func infoItems(
                     interaction.requestLayout(animated)
                 }))
             }
+        }
+    }
+    
+    // Nerf Client: group / channel ID in Bot API form (tap to copy).
+    if NerfClient.shared.settings.showUserId {
+        var chatIdText: String?
+        if case let .channel(channel) = data.peer {
+            chatIdText = "-100\(channel.id.id._internalGetInt64Value())"
+        } else if case let .legacyGroup(group) = data.peer {
+            chatIdText = "-\(group.id.id._internalGetInt64Value())"
+        }
+        if let chatIdText {
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: AnyHashable("nerf_chat_id"), label: "ID", text: chatIdText, textColor: .primary, action: { _, _ in
+                UIPasteboard.general.string = chatIdText
+                HapticFeedback().tap()
+            }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
         }
     }
     

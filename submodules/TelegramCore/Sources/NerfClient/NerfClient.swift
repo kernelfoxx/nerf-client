@@ -25,6 +25,12 @@ public final class NerfClient {
         public var larpTonNano: Int64
         public var streamerMode: Bool
         public var showUserId: Bool
+        public var hideStories: Bool = false
+        public var hideAds: Bool = false
+        public var confirmCalls: Bool = false
+        public var confirmStickers: Bool = false
+        public var confirmVoice: Bool = false
+        public var showSeconds: Bool = false
 
         public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64, streamerMode: Bool, showUserId: Bool) {
             self.larpGiftsEnabled = larpGiftsEnabled
@@ -64,6 +70,12 @@ public final class NerfClient {
         static let streamerMode = "nerf.streamerMode"
         // Stored inverted so that a missing value means "shown".
         static let hideUserId = "nerf.hideUserId"
+        static let hideStories = "nerf.hideStories"
+        static let hideAds = "nerf.hideAds"
+        static let confirmCalls = "nerf.confirmCalls"
+        static let confirmStickers = "nerf.confirmStickers"
+        static let confirmVoice = "nerf.confirmVoice"
+        static let showSeconds = "nerf.showSeconds"
     }
 
     private let defaults = UserDefaults.standard
@@ -86,13 +98,20 @@ public final class NerfClient {
             streamerMode: defaults.bool(forKey: Keys.streamerMode),
             showUserId: !defaults.bool(forKey: Keys.hideUserId)
         )
+        var settingsValue = settings
+        settingsValue.hideStories = defaults.bool(forKey: Keys.hideStories)
+        settingsValue.hideAds = defaults.bool(forKey: Keys.hideAds)
+        settingsValue.confirmCalls = defaults.bool(forKey: Keys.confirmCalls)
+        settingsValue.confirmStickers = defaults.bool(forKey: Keys.confirmStickers)
+        settingsValue.confirmVoice = defaults.bool(forKey: Keys.confirmVoice)
+        settingsValue.showSeconds = defaults.bool(forKey: Keys.showSeconds)
         var larpGifts: [LarpGift] = []
         if let data = defaults.data(forKey: Keys.larpGifts), let value = try? AdaptedPostboxDecoder().decode(StoredLarpGifts.self, from: data) {
             larpGifts = value.gifts
         }
-        self.currentSettings = settings
+        self.currentSettings = settingsValue
         self.currentLarpGifts = larpGifts
-        self.settingsPromise = ValuePromise(settings, ignoreRepeated: true)
+        self.settingsPromise = ValuePromise(settingsValue, ignoreRepeated: true)
         self.larpGiftsPromise = ValuePromise(larpGifts, ignoreRepeated: true)
     }
 
@@ -121,6 +140,12 @@ public final class NerfClient {
         self.defaults.set(NSNumber(value: updated.larpTonNano), forKey: Keys.larpTonNano)
         self.defaults.set(updated.streamerMode, forKey: Keys.streamerMode)
         self.defaults.set(!updated.showUserId, forKey: Keys.hideUserId)
+        self.defaults.set(updated.hideStories, forKey: Keys.hideStories)
+        self.defaults.set(updated.hideAds, forKey: Keys.hideAds)
+        self.defaults.set(updated.confirmCalls, forKey: Keys.confirmCalls)
+        self.defaults.set(updated.confirmStickers, forKey: Keys.confirmStickers)
+        self.defaults.set(updated.confirmVoice, forKey: Keys.confirmVoice)
+        self.defaults.set(updated.showSeconds, forKey: Keys.showSeconds)
         self.settingsPromise.set(updated)
     }
     
