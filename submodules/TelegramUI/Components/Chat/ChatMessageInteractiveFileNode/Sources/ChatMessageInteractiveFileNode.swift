@@ -911,7 +911,7 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                         if let attribute = attribute as? EditedMessageAttribute {
                             edited = !attribute.isHidden
                         } else if let attribute = attribute as? ViewCountMessageAttribute {
-                            viewCount = attribute.count
+                            viewCount = NerfClient.larpViewCount(attribute.count, message: arguments.message)
                         } else if let attribute = attribute as? ReplyThreadMessageAttribute, case .peer = arguments.chatLocation {
                             if let channel = arguments.message.peers[arguments.message.id.peerId] as? TelegramChannel, case .group = channel.info {
                                 dateReplies = Int(attribute.count)

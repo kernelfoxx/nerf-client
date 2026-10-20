@@ -23,8 +23,11 @@ private final class NerfClientControllerArguments {
     let updateLarpUsername: (String) -> Void
     let openLarpGift: (NerfLarpGiftRow) -> Void
     let openGiveGift: () -> Void
+    let openCraft: () -> Void
+    let updateLarpToggle: (NerfLarpToggle, Bool) -> Void
+    let updateLarpNumberSetting: (NerfNumberSetting, String) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -39,6 +42,9 @@ private final class NerfClientControllerArguments {
         self.updateLarpUsername = updateLarpUsername
         self.openLarpGift = openLarpGift
         self.openGiveGift = openGiveGift
+        self.openCraft = openCraft
+        self.updateLarpToggle = updateLarpToggle
+        self.updateLarpNumberSetting = updateLarpNumberSetting
     }
 }
 
@@ -100,6 +106,71 @@ private enum NerfFeature: Int32, CaseIterable {
     }
 }
 
+private enum NerfLarpToggle: Int32 {
+    case rating
+    case channel
+
+    var title: String {
+        switch self {
+        case .rating:
+            return "LARP Rating"
+        case .channel:
+            return "LARP Channel"
+        }
+    }
+
+    var keyPath: WritableKeyPath<NerfClient.Settings, Bool> {
+        switch self {
+        case .rating:
+            return \.larpRatingEnabled
+        case .channel:
+            return \.larpChannelEnabled
+        }
+    }
+}
+
+private enum NerfNumberSetting: Int32 {
+    case ratingLevel
+    case subscribers
+    case viewsMultiplier
+    case boostLevel
+
+    var placeholder: String {
+        switch self {
+        case .ratingLevel:
+            return "Уровень"
+        case .subscribers:
+            return "Подписчики"
+        case .viewsMultiplier:
+            return "Множитель просмотров (x)"
+        case .boostLevel:
+            return "Уровень бустов"
+        }
+    }
+
+    var keyPath: WritableKeyPath<NerfClient.Settings, Int32> {
+        switch self {
+        case .ratingLevel:
+            return \.larpRatingLevel
+        case .subscribers:
+            return \.larpSubscribers
+        case .viewsMultiplier:
+            return \.larpViewsMultiplier
+        case .boostLevel:
+            return \.larpBoostLevel
+        }
+    }
+
+    var defaultValue: Int32 {
+        switch self {
+        case .viewsMultiplier:
+            return 1
+        default:
+            return 0
+        }
+    }
+}
+
 private struct NerfLarpGiftRow: Equatable {
     let peerId: EnginePeer.Id
     let localMessageId: Int32
@@ -115,6 +186,8 @@ private enum NerfClientSection: Int32 {
     case larpTon
     case larpNumber
     case larpProfile
+    case larpRating
+    case larpChannel
     case larpGiftList
 }
 
@@ -145,6 +218,13 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpProfileInfo
     case larpGiftListHeader
     case larpGiveGift
+    case larpCraft
+    case larpRatingHeader
+    case larpToggle(NerfLarpToggle, Bool)
+    case larpNumber(NerfNumberSetting, String)
+    case larpRatingInfo
+    case larpChannelHeader
+    case larpChannelInfo
     case larpGiftListItem(Int32, NerfLarpGiftRow)
     case larpGiftListInfo
 
@@ -162,7 +242,15 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return NerfClientSection.larpNumber.rawValue
         case .larpProfileHeader, .larpPremiumToggle, .larpUsernameToggle, .larpUsernameInput, .larpProfileInfo:
             return NerfClientSection.larpProfile.rawValue
-        case .larpGiftListHeader, .larpGiveGift, .larpGiftListItem, .larpGiftListInfo:
+        case .larpRatingHeader, .larpRatingInfo:
+            return NerfClientSection.larpRating.rawValue
+        case .larpChannelHeader, .larpChannelInfo:
+            return NerfClientSection.larpChannel.rawValue
+        case let .larpToggle(toggle, _):
+            return toggle == .rating ? NerfClientSection.larpRating.rawValue : NerfClientSection.larpChannel.rawValue
+        case let .larpNumber(setting, _):
+            return setting == .ratingLevel ? NerfClientSection.larpRating.rawValue : NerfClientSection.larpChannel.rawValue
+        case .larpGiftListHeader, .larpGiveGift, .larpCraft, .larpGiftListItem, .larpGiftListInfo:
             return NerfClientSection.larpGiftList.rawValue
         }
     }
@@ -217,10 +305,24 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return 19
         case .larpProfileInfo:
             return 20
+        case .larpRatingHeader:
+            return 30
+        case let .larpToggle(toggle, _):
+            return toggle == .rating ? 31 : 41
+        case let .larpNumber(setting, _):
+            return setting == .ratingLevel ? 32 : 42 + setting.rawValue
+        case .larpRatingInfo:
+            return 33
+        case .larpChannelHeader:
+            return 40
+        case .larpChannelInfo:
+            return 50
         case .larpGiftListHeader:
-            return 999
+            return 997
         case .larpGiveGift:
-            return 1000
+            return 998
+        case .larpCraft:
+            return 999
         case let .larpGiftListItem(index, _):
             return 1001 + index
         case .larpGiftListInfo:
@@ -305,6 +407,26 @@ private enum NerfClientEntry: ItemListNodeEntry {
             }, action: {})
         case .larpGiftListHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "МОИ LARP-ГИФТЫ", sectionId: self.section)
+        case .larpCraft:
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "LARP-крафт", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.openCraft()
+            })
+        case .larpRatingHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP RATING", sectionId: self.section)
+        case .larpChannelHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP CHANNEL", sectionId: self.section)
+        case let .larpToggle(toggle, value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: toggle.title, value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateLarpToggle(toggle, value)
+            })
+        case let .larpNumber(setting, text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(), text: text, placeholder: setting.placeholder, type: .number, sectionId: self.section, textUpdated: { value in
+                arguments.updateLarpNumberSetting(setting, value)
+            }, action: {})
+        case .larpRatingInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Звёздный уровень в твоём профиле, только на этом устройстве. В настройках рядом всегда стоит «Ур. N LARP»."), sectionId: self.section)
+        case .larpChannelInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Для каналов, которые ты создал: число подписчиков (всегда с пометкой LARP), просмотры постов (умножаются) и уровень бустов. Только на этом устройстве."), sectionId: self.section)
         case .larpGiveGift:
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Выдать гифт", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.openGiveGift()
@@ -354,6 +476,11 @@ private func larpTonNano(text: String) -> Int64 {
     return overflow ? Int64.max : product + fraction
 }
 
+private func nerfNumberText(_ settings: NerfClient.Settings, _ setting: NerfNumberSetting) -> String {
+    let value = settings[keyPath: setting.keyPath]
+    return value == setting.defaultValue ? "" : "\(value)"
+}
+
 private func nerfClientControllerEntries(settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int, larpGiftRows: [NerfLarpGiftRow]) -> [NerfClientEntry] {
     var entries: [NerfClientEntry] = []
     entries.append(.featuresHeader)
@@ -390,8 +517,23 @@ private func nerfClientControllerEntries(settings: NerfClient.Settings, inputSta
         entries.append(.larpUsernameInput(settings.larpUsername))
     }
     entries.append(.larpProfileInfo)
+    entries.append(.larpRatingHeader)
+    entries.append(.larpToggle(.rating, settings.larpRatingEnabled))
+    if settings.larpRatingEnabled {
+        entries.append(.larpNumber(.ratingLevel, nerfNumberText(settings, .ratingLevel)))
+    }
+    entries.append(.larpRatingInfo)
+    entries.append(.larpChannelHeader)
+    entries.append(.larpToggle(.channel, settings.larpChannelEnabled))
+    if settings.larpChannelEnabled {
+        entries.append(.larpNumber(.subscribers, nerfNumberText(settings, .subscribers)))
+        entries.append(.larpNumber(.viewsMultiplier, nerfNumberText(settings, .viewsMultiplier)))
+        entries.append(.larpNumber(.boostLevel, nerfNumberText(settings, .boostLevel)))
+    }
+    entries.append(.larpChannelInfo)
     entries.append(.larpGiftListHeader)
     entries.append(.larpGiveGift)
+    entries.append(.larpCraft)
     for (index, row) in larpGiftRows.enumerated() {
         entries.append(.larpGiftListItem(Int32(index), row))
     }
@@ -539,6 +681,22 @@ public func nerfClientController(context: AccountContext) -> ViewController {
         presentControllerImpl?(alertController)
     }, openGiveGift: {
         pushControllerImpl?(nerfGiveGiftController(context: context))
+    }, openCraft: {
+        pushControllerImpl?(nerfCraftController(context: context))
+    }, updateLarpToggle: { toggle, value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current[keyPath: toggle.keyPath] = value
+            return current
+        }
+    }, updateLarpNumberSetting: { setting, text in
+        let digits = text.filter { $0.isNumber }
+        let value = digits.isEmpty ? setting.defaultValue : (Int32(digits) ?? Int32.max)
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current[keyPath: setting.keyPath] = max(setting.defaultValue, value)
+            return current
+        }
     })
 
     let larpGiftCount = NerfClient.shared.larpGiftsSignal
@@ -702,6 +860,142 @@ private func nerfGiveGiftController(context: AccountContext) -> ViewController {
     let controller = ItemListController(context: context, state: signal)
     presentControllerImpl = { [weak controller] c in
         controller?.present(c, in: .window(.root))
+    }
+    return controller
+}
+
+
+private final class NerfCraftControllerArguments {
+    let toggle: (Int32) -> Void
+
+    init(toggle: @escaping (Int32) -> Void) {
+        self.toggle = toggle
+    }
+}
+
+private enum NerfCraftEntry: ItemListNodeEntry {
+    case header
+    case gift(Int32, Int32, String, Bool)
+    case info(String)
+
+    var section: ItemListSectionId {
+        return 0
+    }
+
+    var stableId: Int32 {
+        switch self {
+        case .header:
+            return 0
+        case let .gift(index, _, _, _):
+            return 1 + index
+        case .info:
+            return Int32.max
+        }
+    }
+
+    static func <(lhs: NerfCraftEntry, rhs: NerfCraftEntry) -> Bool {
+        return lhs.stableId < rhs.stableId
+    }
+
+    func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
+        let arguments = arguments as! NerfCraftControllerArguments
+        switch self {
+        case .header:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "ВЫБЕРИ ГИФТЫ ДЛЯ КРАФТА", sectionId: self.section)
+        case let .gift(_, localMessageId, title, checked):
+            return ItemListCheckboxItem(presentationData: presentationData, systemStyle: .glass, title: title, style: .left, checked: checked, zeroSeparatorInsets: false, sectionId: self.section, action: {
+                arguments.toggle(localMessageId)
+            })
+        case let .info(text):
+            return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
+        }
+    }
+}
+
+private func nerfCraftController(context: AccountContext) -> ViewController {
+    var presentControllerImpl: ((ViewController) -> Void)?
+    var dismissImpl: (() -> Void)?
+
+    let accountPeerId = context.account.peerId.toInt64()
+    let selection = ValuePromise<Set<Int32>>(Set(), ignoreRepeated: true)
+    let selectionValue = Atomic<Set<Int32>>(value: Set())
+
+    let arguments = NerfCraftControllerArguments(toggle: { localMessageId in
+        selection.set(selectionValue.modify { current in
+            var current = current
+            if current.contains(localMessageId) {
+                current.remove(localMessageId)
+            } else {
+                current.insert(localMessageId)
+            }
+            return current
+        })
+    })
+
+    // Only unique LARP gifts in your own profile can be crafted.
+    let gifts: Signal<[(Int32, String)], NoError> = NerfClient.shared.larpGiftsSignal
+    |> map { gifts -> [(Int32, String)] in
+        return gifts.compactMap { gift -> (Int32, String)? in
+            guard gift.accountPeerId == accountPeerId, gift.peerId == accountPeerId, case let .unique(uniqueGift) = gift.gift else {
+                return nil
+            }
+            return (gift.localMessageId, "\(uniqueGift.title) #\(uniqueGift.number)")
+        }
+    }
+
+    let craft: () -> Void = {
+        let selected = Array(selectionValue.with { $0 })
+        guard selected.count >= 2 else {
+            return
+        }
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let _ = (context.engine.payments.craftLarpGifts(localMessageIds: selected)
+        |> deliverOnMainQueue).startStandalone(next: { result in
+            let text: String
+            switch result {
+            case let .upgraded(gift):
+                if case let .unique(uniqueGift) = gift {
+                    text = "Скрафчено: \(uniqueGift.title) #\(uniqueGift.number) \(NerfClient.larpMark)"
+                } else {
+                    text = "Готово"
+                }
+            case .notEnoughBalance, .unavailable:
+                text = "Не получилось скрафтить эти гифты."
+            }
+            let _ = selectionValue.swap(Set())
+            selection.set(Set())
+            presentControllerImpl?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {
+                dismissImpl?()
+            })]))
+        })
+    }
+
+    let signal = combineLatest(context.sharedContext.presentationData, gifts, selection.get())
+    |> deliverOnMainQueue
+    |> map { presentationData, gifts, selection -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        var entries: [NerfCraftEntry] = [.header]
+        for (index, gift) in gifts.enumerated() {
+            entries.append(.gift(Int32(index), gift.0, gift.1, selection.contains(gift.0)))
+        }
+        if gifts.count < 2 {
+            entries.append(.info("Для крафта нужно минимум 2 улучшенных LARP-гифта в твоём профиле. Выдай гифты себе и улучши их в «Мои LARP-гифты»."))
+        } else {
+            entries.append(.info("Выбери 2 или больше гифтов. Они исчезнут, а вместо них появится один новый уникальный гифт с лентой LARP; если у гифта есть крафтовые модели, выпадет одна из них."))
+        }
+        let rightButton = ItemListNavigationButton(content: .text("Скрафтить"), style: .bold, enabled: selection.count >= 2, action: {
+            craft()
+        })
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("LARP-крафт"), leftNavigationButton: nil, rightNavigationButton: rightButton, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, emptyStateItem: nil, animateChanges: true)
+        return (controllerState, (listState, arguments))
+    }
+
+    let controller = ItemListController(context: context, state: signal)
+    presentControllerImpl = { [weak controller] c in
+        controller?.present(c, in: .window(.root))
+    }
+    dismissImpl = { [weak controller] in
+        controller?.dismiss()
     }
     return controller
 }

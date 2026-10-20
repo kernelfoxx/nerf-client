@@ -1241,6 +1241,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                     if NerfClient.shared.settings.larpPremium {
                         subtitle = "\(subtitle) • Premium \(NerfClient.larpMark)"
                     }
+                    if let larpStarRating = NerfClient.shared.larpStarRating {
+                        subtitle = "\(subtitle) • Ур. \(larpStarRating.level) \(NerfClient.larpMark)"
+                    }
                 }
                 subtitleStringText = subtitle
                 subtitleAttributes = MultiScaleTextState.Attributes(font: Font.regular(17.0), color: .white)
@@ -1379,6 +1382,11 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             self.currentPendingStarRating = cachedData.pendingStarRating
         } else {
             self.currentStarRating = nil
+            self.currentPendingStarRating = nil
+        }
+        // Nerf Client: LARP star rating in the account's own profile; the subtitle carries the LARP mark.
+        if peer?.id == self.context.account.peerId, let larpStarRating = NerfClient.shared.larpStarRating, !NerfClient.shared.isStreamerMode {
+            self.currentStarRating = larpStarRating
             self.currentPendingStarRating = nil
         }
 

@@ -83,6 +83,24 @@ public struct ChannelBoostStatus: Equatable {
 }
 
 func _internal_getChannelBoostStatus(account: Account, peerId: PeerId) -> Signal<ChannelBoostStatus?, NoError> {
+    // Nerf Client: LARP boost level in the account's own channels.
+    return combineLatest(
+        _internal_getChannelBoostStatusFromServer(account: account, peerId: peerId),
+        account.postbox.transaction { transaction -> Peer? in
+            return transaction.getPeer(peerId)
+        }
+    )
+    |> map { status, peer -> ChannelBoostStatus? in
+        guard let status, NerfClient.shared.isLarpChannel(peer) else {
+            return status
+        }
+        let level = Int(max(0, NerfClient.shared.settings.larpBoostLevel))
+        let currentLevelBoosts = level * 10
+        return ChannelBoostStatus(level: level, boosts: currentLevelBoosts + 5, giftBoosts: status.giftBoosts, currentLevelBoosts: currentLevelBoosts, nextLevelBoosts: currentLevelBoosts + 10, premiumAudience: status.premiumAudience, url: status.url, prepaidGiveaways: status.prepaidGiveaways, boostedByMe: status.boostedByMe)
+    }
+}
+
+private func _internal_getChannelBoostStatusFromServer(account: Account, peerId: PeerId) -> Signal<ChannelBoostStatus?, NoError> {
     return account.postbox.transaction { transaction -> Api.InputPeer? in
         return transaction.getPeer(peerId).flatMap(apiInputPeer)
     }

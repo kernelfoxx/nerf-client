@@ -305,7 +305,7 @@ public class ChatMessageFactCheckBubbleContentNode: ChatMessageBubbleContentNode
                     if let attribute = attribute as? EditedMessageAttribute {
                         edited = !attribute.isHidden
                     } else if let attribute = attribute as? ViewCountMessageAttribute {
-                        viewCount = attribute.count
+                        viewCount = NerfClient.larpViewCount(attribute.count, message: item.message)
                     } else if let attribute = attribute as? FactCheckMessageAttribute, case let .Loaded(text, entities, _) = attribute.content {
                         rawText = text
                         rawEntities = entities

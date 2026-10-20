@@ -702,11 +702,15 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
                                                 string.append(NSAttributedString(string: strings.Conversation_StatusOnline(Int32(onlineMemberCount)), font: subtitleFont, textColor: titleTheme.rootController.navigationBar.secondaryTextColor))
                                                 state = .info(string, .generic)
                                             } else {
-                                                let membersString: String
+                                                var membersString: String
                                                 if case .group = channel.info {
                                                     membersString = strings.Conversation_StatusMembers(memberCount)
                                                 } else {
                                                     membersString = strings.Conversation_StatusSubscribers(memberCount)
+                                                }
+                                                // Nerf Client: LARP subscriber count in the account's own channels.
+                                                if let larpSubscribers = NerfClient.shared.larpSubscriberCount(channel) {
+                                                    membersString = "\(strings.Conversation_StatusSubscribers(larpSubscribers)) \(NerfClient.larpMark)"
                                                 }
                                                 let string = NSAttributedString(string: membersString, font: subtitleFont, textColor: titleTheme.rootController.navigationBar.secondaryTextColor)
                                                 state = .info(string, .generic)

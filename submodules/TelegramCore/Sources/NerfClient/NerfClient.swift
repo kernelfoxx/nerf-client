@@ -33,6 +33,12 @@ public final class NerfClient {
         public var showSeconds: Bool = false
         public var larpPremium: Bool = false
         public var saveProtectedContent: Bool = false
+        public var larpRatingEnabled: Bool = false
+        public var larpRatingLevel: Int32 = 0
+        public var larpChannelEnabled: Bool = false
+        public var larpSubscribers: Int32 = 0
+        public var larpViewsMultiplier: Int32 = 1
+        public var larpBoostLevel: Int32 = 0
         public var larpUsernameEnabled: Bool = false
         public var larpUsername: String = ""
 
@@ -82,6 +88,12 @@ public final class NerfClient {
         static let showSeconds = "nerf.showSeconds"
         static let larpPremium = "nerf.larpPremium"
         static let saveProtectedContent = "nerf.saveProtectedContent"
+        static let larpRatingEnabled = "nerf.larpRatingEnabled"
+        static let larpRatingLevel = "nerf.larpRatingLevel"
+        static let larpChannelEnabled = "nerf.larpChannelEnabled"
+        static let larpSubscribers = "nerf.larpSubscribers"
+        static let larpViewsMultiplier = "nerf.larpViewsMultiplier"
+        static let larpBoostLevel = "nerf.larpBoostLevel"
         static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
         static let larpUsername = "nerf.larpUsername"
     }
@@ -115,6 +127,12 @@ public final class NerfClient {
         settingsValue.showSeconds = defaults.bool(forKey: Keys.showSeconds)
         settingsValue.larpPremium = defaults.bool(forKey: Keys.larpPremium)
         settingsValue.saveProtectedContent = defaults.bool(forKey: Keys.saveProtectedContent)
+        settingsValue.larpRatingEnabled = defaults.bool(forKey: Keys.larpRatingEnabled)
+        settingsValue.larpRatingLevel = Int32(defaults.integer(forKey: Keys.larpRatingLevel))
+        settingsValue.larpChannelEnabled = defaults.bool(forKey: Keys.larpChannelEnabled)
+        settingsValue.larpSubscribers = Int32(clamping: defaults.integer(forKey: Keys.larpSubscribers))
+        settingsValue.larpViewsMultiplier = max(1, Int32(clamping: defaults.integer(forKey: Keys.larpViewsMultiplier)))
+        settingsValue.larpBoostLevel = Int32(clamping: defaults.integer(forKey: Keys.larpBoostLevel))
         settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
         settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
         var larpGifts: [LarpGift] = []
@@ -160,6 +178,12 @@ public final class NerfClient {
         self.defaults.set(updated.showSeconds, forKey: Keys.showSeconds)
         self.defaults.set(updated.larpPremium, forKey: Keys.larpPremium)
         self.defaults.set(updated.saveProtectedContent, forKey: Keys.saveProtectedContent)
+        self.defaults.set(updated.larpRatingEnabled, forKey: Keys.larpRatingEnabled)
+        self.defaults.set(Int(updated.larpRatingLevel), forKey: Keys.larpRatingLevel)
+        self.defaults.set(updated.larpChannelEnabled, forKey: Keys.larpChannelEnabled)
+        self.defaults.set(Int(updated.larpSubscribers), forKey: Keys.larpSubscribers)
+        self.defaults.set(Int(updated.larpViewsMultiplier), forKey: Keys.larpViewsMultiplier)
+        self.defaults.set(Int(updated.larpBoostLevel), forKey: Keys.larpBoostLevel)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
         self.settingsPromise.set(updated)
@@ -223,6 +247,47 @@ public final class NerfClient {
         return nil
     }
 
+    /// The LARP star rating to show in the account's own profile, or nil when it is off.
+    public var larpStarRating: TelegramStarRating? {
+        let settings = self.settings
+        guard settings.larpRatingEnabled else {
+            return nil
+        }
+        let level = max(1, settings.larpRatingLevel)
+        let currentLevelStars = Int64(level) * 1000
+        return TelegramStarRating(level: level, currentLevelStars: currentLevelStars, stars: currentLevelStars + 500, nextLevelStars: currentLevelStars + 1000)
+    }
+
+    /// LARP Channel applies only to broadcast channels this account created.
+    public func isLarpChannel(_ peer: Peer?) -> Bool {
+        guard self.settings.larpChannelEnabled, let channel = peer as? TelegramChannel, case .broadcast = channel.info, channel.flags.contains(.isCreator) else {
+            return false
+        }
+        return true
+    }
+
+    public func isLarpChannel(_ peer: EnginePeer?) -> Bool {
+        return self.isLarpChannel(peer?._asPeer())
+    }
+
+    /// The LARP subscriber count for one of the account's own channels, or nil when it does not apply.
+    public func larpSubscriberCount(_ peer: Peer?) -> Int32? {
+        guard self.isLarpChannel(peer) else {
+            return nil
+        }
+        return self.settings.larpSubscribers
+    }
+
+    /// A post's view count, multiplied in the account's own channels while LARP Channel is on.
+    public static func larpViewCount(_ count: Int, message: Message) -> Int {
+        guard NerfClient.shared.isLarpChannel(message.peers[message.id.peerId]) else {
+            return count
+        }
+        let multiplier = Int(max(1, NerfClient.shared.settings.larpViewsMultiplier))
+        let (product, overflow) = count.multipliedReportingOverflow(by: multiplier)
+        return overflow ? Int.max : product
+    }
+
     public var larpGifts: [LarpGift] {
         self.lock.lock()
         defer { self.lock.unlock() }
@@ -282,7 +347,7 @@ public final class NerfClient {
     }
 }
 
-func _internal_addLarpGift(account: Account, peerId: EnginePeer.Id, gift: StarGift, text: String?, entities: [MessageTextEntity]?, nameHidden: Bool) -> Signal<EngineMessage.Id?, NoError> {
+func _internal_addLarpGift(account: Account, peerId: EnginePeer.Id, gift: StarGift, text: String?, entities: [MessageTextEntity]?, nameHidden: Bool, isCrafted: Bool = false) -> Signal<EngineMessage.Id?, NoError> {
     let accountPeerId = account.peerId
     return account.postbox.transaction { transaction -> EngineMessage.Id? in
         guard peerId.namespace == Namespaces.Peer.CloudUser, transaction.getPeer(peerId) != nil else {
@@ -298,7 +363,7 @@ func _internal_addLarpGift(account: Account, peerId: EnginePeer.Id, gift: StarGi
         case let .unique(uniqueGift):
             // The resale price makes the service line read "You bought <gift> for N Stars", as for a real market purchase.
             let resaleAmount = uniqueGift.resellAmounts?.first(where: { $0.currency == .stars }) ?? uniqueGift.resellAmounts?.first
-            action = .starGiftUnique(gift: gift, isUpgrade: false, isTransferred: false, savedToProfile: false, canExportDate: nil, transferStars: nil, isRefunded: false, isPrepaidUpgrade: false, peerId: nil, senderId: accountPeerId, savedId: nil, resaleAmount: resaleAmount, canTransferDate: nil, canResaleDate: nil, dropOriginalDetailsStars: nil, assigned: false, fromOffer: false, canCraftAt: nil, isCrafted: false, text: text, entities: entities, nameHidden: nameHidden)
+            action = .starGiftUnique(gift: gift, isUpgrade: false, isTransferred: false, savedToProfile: false, canExportDate: nil, transferStars: nil, isRefunded: false, isPrepaidUpgrade: false, peerId: nil, senderId: accountPeerId, savedId: nil, resaleAmount: isCrafted ? nil : resaleAmount, canTransferDate: nil, canResaleDate: nil, dropOriginalDetailsStars: nil, assigned: false, fromOffer: false, canCraftAt: nil, isCrafted: isCrafted, text: text, entities: entities, nameHidden: nameHidden)
         }
 
         let message = StoreMessage(peerId: peerId, namespace: Namespaces.Message.Local, customStableId: nil, globallyUniqueId: randomId, groupingKey: nil, threadId: nil, timestamp: timestamp, flags: [], tags: [], globalTags: [], localTags: [], forwardInfo: nil, authorId: accountPeerId, text: "", attributes: [], media: [TelegramMediaAction(action: action)])
@@ -495,6 +560,78 @@ func _internal_upgradeLarpGift(account: Account, peerId: EnginePeer.Id, localMes
                 }
             }
             return .upgraded(gift)
+        }
+    }
+}
+
+
+/// Crafts a new unique LARP gift from two or more of the account's own unique LARP gifts, which
+/// are used up. Crafted models are preferred when the gift has any.
+func _internal_craftLarpGifts(account: Account, localMessageIds: [Int32]) -> Signal<LarpGiftUpgradeResult, NoError> {
+    let accountPeerId = account.peerId
+    let inputs = NerfClient.shared.larpGifts.filter { record in
+        guard record.accountPeerId == accountPeerId.toInt64(), record.peerId == accountPeerId.toInt64(), localMessageIds.contains(record.localMessageId) else {
+            return false
+        }
+        if case .unique = record.gift {
+            return true
+        }
+        return false
+    }
+    guard inputs.count >= 2, let base = inputs.randomElement(), case let .unique(baseGift) = base.gift else {
+        return .single(.unavailable)
+    }
+    return _internal_starGiftUpgradePreview(account: account, giftId: baseGift.giftId)
+    |> mapToSignal { preview -> Signal<LarpGiftUpgradeResult, NoError> in
+        guard let preview else {
+            return .single(.unavailable)
+        }
+        let models = preview.attributes.filter { if case .model = $0 { return true } else { return false } }
+        let craftedModels = models.filter { if case .model(_, _, _, true) = $0 { return true } else { return false } }
+        let patterns = preview.attributes.filter { if case .pattern = $0 { return true } else { return false } }
+        let backdrops = preview.attributes.filter { if case .backdrop = $0 { return true } else { return false } }
+        guard let model = nerfPickAttribute(craftedModels.isEmpty ? models : craftedModels), let pattern = nerfPickAttribute(patterns), let backdrop = nerfPickAttribute(backdrops) else {
+            return .single(.unavailable)
+        }
+        let total = max(1, baseGift.availability.total)
+        let number = Int32.random(in: 1 ... total)
+        let uniqueId = Int64.random(in: 1 ... Int64.max)
+        let crafted = StarGift.UniqueGift(
+            id: uniqueId,
+            giftId: baseGift.giftId,
+            title: baseGift.title,
+            number: number,
+            slug: "larp-\(uniqueId)",
+            owner: .peerId(accountPeerId),
+            attributes: [model, pattern, backdrop],
+            availability: baseGift.availability,
+            giftAddress: nil,
+            resellAmounts: nil,
+            resellForTonOnly: false,
+            releasedBy: baseGift.releasedBy,
+            valueAmount: nil,
+            valueCurrency: nil,
+            valueUsdAmount: nil,
+            flags: [],
+            themePeerId: nil,
+            peerColor: nil,
+            hostPeerId: nil,
+            minOfferStars: nil,
+            craftChancePermille: nil
+        )
+        let inputIds = Set(inputs.map { $0.localMessageId })
+        let removeInputs = account.postbox.transaction { transaction -> Void in
+            transaction.deleteMessages(inputIds.map { MessageId(peerId: accountPeerId, namespace: Namespaces.Message.Local, id: $0) }, forEachMedia: nil)
+            NerfClient.shared.updateLarpGifts { current in
+                return current.filter { !($0.accountPeerId == accountPeerId.toInt64() && $0.peerId == accountPeerId.toInt64() && inputIds.contains($0.localMessageId)) }
+            }
+        }
+        return removeInputs
+        |> mapToSignal { _ -> Signal<LarpGiftUpgradeResult, NoError> in
+            return _internal_addLarpGift(account: account, peerId: accountPeerId, gift: .unique(crafted), text: nil, entities: nil, nameHidden: false, isCrafted: true)
+            |> map { _ -> LarpGiftUpgradeResult in
+                return .upgraded(.unique(crafted))
+            }
         }
     }
 }

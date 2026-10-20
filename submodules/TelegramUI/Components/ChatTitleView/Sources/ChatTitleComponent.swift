@@ -804,11 +804,15 @@ public final class ChatTitleComponent: Component {
                                             string.append(NSAttributedString(string: component.strings.Conversation_StatusOnline(Int32(onlineMemberCount)), font: subtitleFont, textColor: component.theme.chat.inputPanel.inputControlColor))
                                             state = .info(string, .generic)
                                         } else {
-                                            let membersString: String
+                                            var membersString: String
                                             if case .group = channel.info {
                                                 membersString = component.strings.Conversation_StatusMembers(memberCount)
                                             } else {
                                                 membersString = component.strings.Conversation_StatusSubscribers(memberCount)
+                                            }
+                                            // Nerf Client: LARP subscriber count in the account's own channels.
+                                            if let larpSubscribers = NerfClient.shared.larpSubscriberCount(channel) {
+                                                membersString = "\(component.strings.Conversation_StatusSubscribers(larpSubscribers)) \(NerfClient.larpMark)"
                                             }
                                             let string = NSAttributedString(string: membersString, font: subtitleFont, textColor: component.theme.chat.inputPanel.inputControlColor)
                                             state = .info(string, .generic)

@@ -65,7 +65,7 @@ public class ChatMessageRestrictedBubbleContentNode: ChatMessageBubbleContentNod
                     if let attribute = attribute as? EditedMessageAttribute {
                         edited = !attribute.isHidden
                     } else if let attribute = attribute as? ViewCountMessageAttribute {
-                        viewCount = attribute.count
+                        viewCount = NerfClient.larpViewCount(attribute.count, message: item.message)
                     } else if let attribute = attribute as? RestrictedContentMessageAttribute {
                         rawText = attribute.platformText(platform: "ios", contentSettings: item.context.currentContentSettings.with { $0 }) ?? ""
                     } else if let attribute = attribute as? ReplyThreadMessageAttribute, case .peer = item.chatLocation {
