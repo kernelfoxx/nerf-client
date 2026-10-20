@@ -30,6 +30,18 @@ public func buyStarGiftImpl(
         // Nerf Client: nothing is bought. The gift is added as a local message marked LARP,
         // visible only on this device.
         if NerfClient.shared.settings.larpGiftsEnabled, recipientPeerId.namespace == Namespaces.Peer.CloudUser, recipientPeerId != context.account.peerId {
+            // The balance here is the LARP one while LARP Stars/TON is on, else the real one; only LARP balance is spent.
+            let isTon = currency == .ton
+            let price = acceptedPrice ?? uniqueGift.resellAmounts?.first(where: { $0.currency == currency })
+            let balance = isTon ? context.tonContext?.currentState?.balance : context.starsContext?.currentState?.balance
+            guard let price, let balance, balance >= price.amount, NerfClient.shared.spendLarpBalance(ton: isTon, amount: price.amount.value) else {
+                if let controller = getController() {
+                    let alertController = textAlertController(context: context, title: nil, text: isTon ? "Недостаточно TON на балансе." : "Недостаточно звёзд на балансе.", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})])
+                    controller.present(alertController, in: .window(.root))
+                }
+                beforeCompletion()
+                return
+            }
             updateProgress(true)
             let _ = (context.engine.payments.addLarpGift(peerId: recipientPeerId, gift: .unique(uniqueGift), text: message.text, entities: message.entities, nameHidden: message.hideName)
             |> deliverOnMainQueue).startStandalone(next: { _ in

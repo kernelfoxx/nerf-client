@@ -95,9 +95,12 @@ final class BalanceComponent: Component {
             let presentationData = component.context.sharedContext.currentPresentationData.with { $0 }
 
             var rawString: String = ""
-            let starsBalanceString = "**⭐️\(presentationStringsFormattedNumber(Int32(clamping: self.starsBalance), presentationData.dateTimeFormat.groupingSeparator))**"
+            // Nerf Client: a LARP balance always carries the LARP mark.
+            let starsLarpMark = NerfClient.shared.larpBalance(ton: false) != nil ? " \(NerfClient.larpMark)" : ""
+            let tonLarpMark = NerfClient.shared.larpBalance(ton: true) != nil ? " \(NerfClient.larpMark)" : ""
+            let starsBalanceString = "**⭐️\(presentationStringsFormattedNumber(Int32(clamping: self.starsBalance), presentationData.dateTimeFormat.groupingSeparator))\(starsLarpMark)**"
             if self.tonBalance > 0 {
-                let tonBalanceString = "**💎\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))**"
+                let tonBalanceString = "**💎\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))\(tonLarpMark)**"
                 rawString = starsBalanceString + "\n" + tonBalanceString
             } else {
                 rawString = presentationData.strings.Stars_Purchase_Balance + "\n" + starsBalanceString

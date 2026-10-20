@@ -1103,7 +1103,7 @@ public final class StarsContext {
     private let impl: QueueLocalObject<StarsContextImpl>
     
     public var state: Signal<StarsContext.State?, NoError> {
-        return Signal { subscriber in
+        let serverState: Signal<StarsContext.State?, NoError> = Signal { subscriber in
             let disposable = MetaDisposable()
             self.impl.with { impl in
                 disposable.set(impl.state.start(next: { value in
@@ -1111,6 +1111,12 @@ public final class StarsContext {
                 }))
             }
             return disposable
+        }
+        // Nerf Client: show the LARP balance instead of the real one while it is on.
+        let ton = self.ton
+        return combineLatest(serverState, NerfClient.shared.settingsSignal)
+        |> map { state, _ -> StarsContext.State? in
+            return nerfApplyLarpBalance(state, ton: ton)
         }
     }
     
@@ -1129,9 +1135,9 @@ public final class StarsContext {
         self.impl.syncWith { impl in
             state = impl._state
         }
-        return state
+        return nerfApplyLarpBalance(state, ton: self.ton)
     }
-    
+
     public func add(balance: StarsAmount, addTransaction: Bool = true) {
         self.impl.with {
             $0.add(balance: balance, addTransaction: addTransaction)

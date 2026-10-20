@@ -16,11 +16,20 @@ public final class NerfClient {
         public var larpGiftsEnabled: Bool
         public var larpNumberEnabled: Bool
         public var larpNumber: String
+        public var larpStarsEnabled: Bool
+        public var larpStars: Int64
+        public var larpTonEnabled: Bool
+        /// In nanotons, as `StarsAmount.value` holds for a TON balance.
+        public var larpTonNano: Int64
 
-        public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String) {
+        public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64) {
             self.larpGiftsEnabled = larpGiftsEnabled
             self.larpNumberEnabled = larpNumberEnabled
             self.larpNumber = larpNumber
+            self.larpStarsEnabled = larpStarsEnabled
+            self.larpStars = larpStars
+            self.larpTonEnabled = larpTonEnabled
+            self.larpTonNano = larpTonNano
         }
     }
 
@@ -42,6 +51,10 @@ public final class NerfClient {
         static let larpNumberEnabled = "nerf.larpNumberEnabled"
         static let larpNumber = "nerf.larpNumber"
         static let larpGifts = "nerf.larpGifts"
+        static let larpStarsEnabled = "nerf.larpStarsEnabled"
+        static let larpStars = "nerf.larpStars"
+        static let larpTonEnabled = "nerf.larpTonEnabled"
+        static let larpTonNano = "nerf.larpTonNano"
     }
 
     private let defaults = UserDefaults.standard
@@ -56,7 +69,11 @@ public final class NerfClient {
         let settings = Settings(
             larpGiftsEnabled: defaults.bool(forKey: Keys.larpGiftsEnabled),
             larpNumberEnabled: defaults.bool(forKey: Keys.larpNumberEnabled),
-            larpNumber: defaults.string(forKey: Keys.larpNumber) ?? ""
+            larpNumber: defaults.string(forKey: Keys.larpNumber) ?? "",
+            larpStarsEnabled: defaults.bool(forKey: Keys.larpStarsEnabled),
+            larpStars: (defaults.object(forKey: Keys.larpStars) as? NSNumber)?.int64Value ?? 0,
+            larpTonEnabled: defaults.bool(forKey: Keys.larpTonEnabled),
+            larpTonNano: (defaults.object(forKey: Keys.larpTonNano) as? NSNumber)?.int64Value ?? 0
         )
         var larpGifts: [LarpGift] = []
         if let data = defaults.data(forKey: Keys.larpGifts), let value = try? AdaptedPostboxDecoder().decode(StoredLarpGifts.self, from: data) {
@@ -87,7 +104,45 @@ public final class NerfClient {
         self.defaults.set(updated.larpGiftsEnabled, forKey: Keys.larpGiftsEnabled)
         self.defaults.set(updated.larpNumberEnabled, forKey: Keys.larpNumberEnabled)
         self.defaults.set(updated.larpNumber, forKey: Keys.larpNumber)
+        self.defaults.set(updated.larpStarsEnabled, forKey: Keys.larpStarsEnabled)
+        self.defaults.set(NSNumber(value: updated.larpStars), forKey: Keys.larpStars)
+        self.defaults.set(updated.larpTonEnabled, forKey: Keys.larpTonEnabled)
+        self.defaults.set(NSNumber(value: updated.larpTonNano), forKey: Keys.larpTonNano)
         self.settingsPromise.set(updated)
+    }
+    
+    /// The LARP balance shown instead of the real one (Stars, or nanotons for TON), or nil when it is off.
+    public func larpBalance(ton: Bool) -> Int64? {
+        let settings = self.settings
+        if ton {
+            return settings.larpTonEnabled ? settings.larpTonNano : nil
+        } else {
+            return settings.larpStarsEnabled ? settings.larpStars : nil
+        }
+    }
+    
+    /// Takes `amount` from the LARP balance when it is on. Returns false, changing nothing, when it is
+    /// on and too low. The real balance is never touched.
+    public func spendLarpBalance(ton: Bool, amount: Int64) -> Bool {
+        var result = true
+        self.updateSettings { current in
+            var current = current
+            if ton, current.larpTonEnabled {
+                if current.larpTonNano < amount {
+                    result = false
+                } else {
+                    current.larpTonNano -= amount
+                }
+            } else if !ton, current.larpStarsEnabled {
+                if current.larpStars < amount {
+                    result = false
+                } else {
+                    current.larpStars -= amount
+                }
+            }
+            return current
+        }
+        return result
     }
 
     /// The custom number to show instead of the account's own phone, or nil when the feature is off.
@@ -247,4 +302,12 @@ func nerfProfileGifts(account: Account, peerId: EnginePeer.Id) -> Signal<[Profil
             )
         }
     }
+}
+
+func nerfApplyLarpBalance(_ state: StarsContext.State?, ton: Bool) -> StarsContext.State? {
+    guard var state = state, let value = NerfClient.shared.larpBalance(ton: ton) else {
+        return state
+    }
+    state.balance = StarsAmount(value: value, nanos: 0)
+    return state
 }

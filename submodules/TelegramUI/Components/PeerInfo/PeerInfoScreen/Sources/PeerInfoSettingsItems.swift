@@ -293,7 +293,7 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
                 let smallLabelFont = Font.regular(floor(presentationData.listsFontSize.itemListBaseFontSize / 17.0 * 13.0))
                 let labelFont = Font.regular(presentationData.listsFontSize.itemListBaseFontSize)
                 let labelColor = presentationData.theme.list.itemSecondaryTextColor
-                balanceText = tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator)
+                balanceText = nerfLarpMarked(tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator), ton: false, font: labelFont, color: labelColor)
             } else {
                 balanceText = NSAttributedString()
             }
@@ -310,7 +310,7 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
                 let smallLabelFont = Font.regular(floor(presentationData.listsFontSize.itemListBaseFontSize / 17.0 * 13.0))
                 let labelFont = Font.regular(presentationData.listsFontSize.itemListBaseFontSize)
                 let labelColor = presentationData.theme.list.itemSecondaryTextColor
-                balanceText = tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator)
+                balanceText = nerfLarpMarked(tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator), ton: true, font: labelFont, color: labelColor)
             } else {
                 balanceText = NSAttributedString()
             }
@@ -567,5 +567,15 @@ func settingsEditingItems(data: PeerInfoScreenData?, state: PeerInfoState, conte
             result.append((section, sectionItems))
         }
     }
+    return result
+}
+
+/// Nerf Client: a LARP balance always carries the LARP mark.
+private func nerfLarpMarked(_ text: NSAttributedString, ton: Bool, font: UIFont, color: UIColor) -> NSAttributedString {
+    guard NerfClient.shared.larpBalance(ton: ton) != nil else {
+        return text
+    }
+    let result = NSMutableAttributedString(attributedString: text)
+    result.append(NSAttributedString(string: " \(NerfClient.larpMark)", font: font, textColor: color))
     return result
 }

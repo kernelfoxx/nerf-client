@@ -138,11 +138,13 @@ public final class StarsBalanceOverlayComponent: Component {
             let rawString: String
             if component.peerId == component.context.account.peerId {
                 let balanceString: String
+                // Nerf Client: a LARP balance always carries the LARP mark.
+                let larpMark = NerfClient.shared.larpBalance(ton: component.currency == .ton) != nil ? " \(NerfClient.larpMark)" : ""
                 switch component.currency {
                 case .stars:
-                    balanceString = "**⭐️\(balance)**"
+                    balanceString = "**⭐️\(balance)\(larpMark)**"
                 case .ton:
-                    balanceString = "**💎\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))**"
+                    balanceString = "**💎\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))\(larpMark)**"
                 }
                 rawString = presentationData.strings.StarsBalance_YourBalance(balanceString).string
             } else {

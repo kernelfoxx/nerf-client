@@ -13,17 +13,27 @@ private final class NerfClientControllerArguments {
     let clearLarpGifts: () -> Void
     let updateLarpNumberEnabled: (Bool) -> Void
     let updateLarpNumber: (String) -> Void
+    let updateLarpStarsEnabled: (Bool) -> Void
+    let updateLarpStars: (String) -> Void
+    let updateLarpTonEnabled: (Bool) -> Void
+    let updateLarpTon: (String) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
         self.updateLarpNumber = updateLarpNumber
+        self.updateLarpStarsEnabled = updateLarpStarsEnabled
+        self.updateLarpStars = updateLarpStars
+        self.updateLarpTonEnabled = updateLarpTonEnabled
+        self.updateLarpTon = updateLarpTon
     }
 }
 
 private enum NerfClientSection: Int32 {
     case larpGift
+    case larpStars
+    case larpTon
     case larpNumber
 }
 
@@ -32,6 +42,14 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpGiftToggle(Bool)
     case larpGiftClear(Int)
     case larpGiftInfo
+    case larpStarsHeader
+    case larpStarsToggle(Bool)
+    case larpStarsInput(String)
+    case larpStarsInfo
+    case larpTonHeader
+    case larpTonToggle(Bool)
+    case larpTonInput(String)
+    case larpTonInfo
     case larpNumberHeader
     case larpNumberToggle(Bool)
     case larpNumberInput(String)
@@ -41,6 +59,10 @@ private enum NerfClientEntry: ItemListNodeEntry {
         switch self {
         case .larpGiftHeader, .larpGiftToggle, .larpGiftClear, .larpGiftInfo:
             return NerfClientSection.larpGift.rawValue
+        case .larpStarsHeader, .larpStarsToggle, .larpStarsInput, .larpStarsInfo:
+            return NerfClientSection.larpStars.rawValue
+        case .larpTonHeader, .larpTonToggle, .larpTonInput, .larpTonInfo:
+            return NerfClientSection.larpTon.rawValue
         case .larpNumberHeader, .larpNumberToggle, .larpNumberInput, .larpNumberInfo:
             return NerfClientSection.larpNumber.rawValue
         }
@@ -56,14 +78,30 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return 2
         case .larpGiftInfo:
             return 3
-        case .larpNumberHeader:
+        case .larpStarsHeader:
             return 4
-        case .larpNumberToggle:
+        case .larpStarsToggle:
             return 5
-        case .larpNumberInput:
+        case .larpStarsInput:
             return 6
-        case .larpNumberInfo:
+        case .larpStarsInfo:
             return 7
+        case .larpTonHeader:
+            return 8
+        case .larpTonToggle:
+            return 9
+        case .larpTonInput:
+            return 10
+        case .larpTonInfo:
+            return 11
+        case .larpNumberHeader:
+            return 12
+        case .larpNumberToggle:
+            return 13
+        case .larpNumberInput:
+            return 14
+        case .larpNumberInfo:
+            return 15
         }
     }
 
@@ -85,7 +123,31 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 arguments.clearLarpGifts()
             })
         case .larpGiftInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Обычные гифты и гифты с маркета не отправляются и не покупаются: звёзды не списываются. Гифт появляется только у тебя, в чате и в профиле получателя, и всегда с пометкой LARP."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Обычные гифты и гифты с маркета не отправляются и не покупаются, настоящие звёзды и TON не списываются. Если баланса не хватает, гифт не отправится. С включёнными LARP Stars / LARP TON цена списывается с LARP-баланса. Гифт появляется только у тебя, в чате и в профиле получателя, и всегда с пометкой LARP."), sectionId: self.section)
+        case .larpStarsHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP STARS", sectionId: self.section)
+        case let .larpStarsToggle(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "LARP Stars", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateLarpStarsEnabled(value)
+            })
+        case let .larpStarsInput(text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(), text: text, placeholder: "Количество звёзд", type: .number, sectionId: self.section, textUpdated: { value in
+                arguments.updateLarpStars(value)
+            }, action: {})
+        case .larpStarsInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс звёзд подменяется только на экране этого устройства, рядом с ним всегда стоит LARP. Им можно платить только за LARP-гифты."), sectionId: self.section)
+        case .larpTonHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP TON", sectionId: self.section)
+        case let .larpTonToggle(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "LARP TON", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateLarpTonEnabled(value)
+            })
+        case let .larpTonInput(text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(), text: text, placeholder: "Количество TON", type: .decimal, sectionId: self.section, textUpdated: { value in
+                arguments.updateLarpTon(value)
+            }, action: {})
+        case .larpTonInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс TON подменяется только на экране этого устройства, рядом с ним всегда стоит LARP. Им можно платить только за LARP-гифты с маркета."), sectionId: self.section)
         case .larpNumberHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP CUSTOM NUMBER", sectionId: self.section)
         case let .larpNumberToggle(value):
@@ -102,12 +164,55 @@ private enum NerfClientEntry: ItemListNodeEntry {
     }
 }
 
-private func nerfClientControllerEntries(settings: NerfClient.Settings, larpGiftCount: Int) -> [NerfClientEntry] {
+private struct NerfClientInputState: Equatable {
+    var starsText: String
+    var tonText: String
+}
+
+private let nanotonsPerTon: Int64 = 1_000_000_000
+
+private func larpTonText(nano: Int64) -> String {
+    if nano == 0 {
+        return ""
+    }
+    var fraction = String(nano % nanotonsPerTon)
+    fraction = String(repeating: "0", count: 9 - fraction.count) + fraction
+    while fraction.hasSuffix("0") {
+        fraction.removeLast()
+    }
+    let integer = String(nano / nanotonsPerTon)
+    return fraction.isEmpty ? integer : "\(integer).\(fraction)"
+}
+
+private func larpTonNano(text: String) -> Int64 {
+    let normalized = text.replacingOccurrences(of: ",", with: ".").filter { $0.isNumber || $0 == "." }
+    let parts = normalized.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+    let integer = Int64(parts.first.flatMap { String($0) } ?? "") ?? 0
+    var fractionText = parts.count > 1 ? String(parts[1].prefix(9)) : ""
+    fractionText += String(repeating: "0", count: 9 - fractionText.count)
+    let fraction = Int64(fractionText) ?? 0
+    let (product, overflow) = integer.multipliedReportingOverflow(by: nanotonsPerTon)
+    return overflow ? Int64.max : product + fraction
+}
+
+private func nerfClientControllerEntries(settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int) -> [NerfClientEntry] {
     var entries: [NerfClientEntry] = []
     entries.append(.larpGiftHeader)
     entries.append(.larpGiftToggle(settings.larpGiftsEnabled))
     entries.append(.larpGiftClear(larpGiftCount))
     entries.append(.larpGiftInfo)
+    entries.append(.larpStarsHeader)
+    entries.append(.larpStarsToggle(settings.larpStarsEnabled))
+    if settings.larpStarsEnabled {
+        entries.append(.larpStarsInput(inputState.starsText))
+    }
+    entries.append(.larpStarsInfo)
+    entries.append(.larpTonHeader)
+    entries.append(.larpTonToggle(settings.larpTonEnabled))
+    if settings.larpTonEnabled {
+        entries.append(.larpTonInput(inputState.tonText))
+    }
+    entries.append(.larpTonInfo)
     entries.append(.larpNumberHeader)
     entries.append(.larpNumberToggle(settings.larpNumberEnabled))
     if settings.larpNumberEnabled {
@@ -121,6 +226,18 @@ public func nerfClientController(context: AccountContext) -> ViewController {
     var presentControllerImpl: ((ViewController) -> Void)?
 
     let accountPeerId = context.account.peerId.toInt64()
+
+    // Typed text is kept as is, so a half-typed amount such as "1." stays in the field.
+    let initialSettings = NerfClient.shared.settings
+    let initialInputState = NerfClientInputState(
+        starsText: initialSettings.larpStars == 0 ? "" : "\(initialSettings.larpStars)",
+        tonText: larpTonText(nano: initialSettings.larpTonNano)
+    )
+    let inputState = ValuePromise(initialInputState, ignoreRepeated: true)
+    let inputStateValue = Atomic(value: initialInputState)
+    let updateInputState: ((NerfClientInputState) -> NerfClientInputState) -> Void = { f in
+        inputState.set(inputStateValue.modify { f($0) })
+    }
 
     let arguments = NerfClientControllerArguments(updateLarpGiftsEnabled: { value in
         NerfClient.shared.updateSettings { current in
@@ -149,6 +266,40 @@ public func nerfClientController(context: AccountContext) -> ViewController {
             current.larpNumber = value
             return current
         }
+    }, updateLarpStarsEnabled: { value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpStarsEnabled = value
+            return current
+        }
+    }, updateLarpStars: { value in
+        updateInputState { current in
+            var current = current
+            current.starsText = value
+            return current
+        }
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpStars = Int64(value.filter { $0.isNumber }) ?? 0
+            return current
+        }
+    }, updateLarpTonEnabled: { value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpTonEnabled = value
+            return current
+        }
+    }, updateLarpTon: { value in
+        updateInputState { current in
+            var current = current
+            current.tonText = value
+            return current
+        }
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpTonNano = larpTonNano(text: value)
+            return current
+        }
     })
 
     let larpGiftCount = NerfClient.shared.larpGiftsSignal
@@ -157,11 +308,11 @@ public func nerfClientController(context: AccountContext) -> ViewController {
     }
     |> distinctUntilChanged
 
-    let signal = combineLatest(context.sharedContext.presentationData, NerfClient.shared.settingsSignal, larpGiftCount)
+    let signal = combineLatest(context.sharedContext.presentationData, NerfClient.shared.settingsSignal, inputState.get(), larpGiftCount)
     |> deliverOnMainQueue
-    |> map { presentationData, settings, larpGiftCount -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, settings, inputState, larpGiftCount -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Nerf Client"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
-        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: nerfClientControllerEntries(settings: settings, larpGiftCount: larpGiftCount), style: .blocks, emptyStateItem: nil, animateChanges: true)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: nerfClientControllerEntries(settings: settings, inputState: inputState, larpGiftCount: larpGiftCount), style: .blocks, emptyStateItem: nil, animateChanges: true)
 
         return (controllerState, (listState, arguments))
     }

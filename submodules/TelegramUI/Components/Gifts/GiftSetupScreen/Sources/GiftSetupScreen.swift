@@ -524,6 +524,17 @@ private final class GiftSetupScreenComponent: Component {
             let entities = generateChatInputTextEntities(textInputText)
 
             if NerfClient.shared.settings.larpGiftsEnabled, peerId.namespace == Namespaces.Peer.CloudUser, peerId != context.account.peerId, case let .starGift(gift, _) = component.subject {
+                var price = gift.price
+                if self.includeUpgrade, let upgradeStars = gift.upgradeStars {
+                    price += upgradeStars
+                }
+                // The balance here is the LARP one while LARP Stars is on, else the real one; only LARP Stars are spent.
+                if starsState.balance < StarsAmount(value: price, nanos: 0) || !NerfClient.shared.spendLarpBalance(ton: false, amount: price) {
+                    let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+                    let alertController = textAlertController(context: context, title: nil, text: "Недостаточно звёзд на балансе.", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})])
+                    environment.controller()?.present(alertController, in: .window(.root))
+                    return
+                }
                 self.proceedWithLarpGift(gift: .generic(gift), text: textInputText.string, entities: entities)
                 return
             }

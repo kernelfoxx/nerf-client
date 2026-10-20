@@ -579,7 +579,13 @@ final class StarsTransactionsScreenComponent: Component {
             }
             let smallLabelFont = Font.regular(11.0)
             let labelFont = Font.semibold(14.0)
-            let balanceText = tonAmountAttributedString(formattedBalance, integralFont: labelFont, fractionalFont: smallLabelFont, color: environment.theme.actionSheet.primaryTextColor, decimalSeparator: environment.dateTimeFormat.decimalSeparator)
+            var balanceText = tonAmountAttributedString(formattedBalance, integralFont: labelFont, fractionalFont: smallLabelFont, color: environment.theme.actionSheet.primaryTextColor, decimalSeparator: environment.dateTimeFormat.decimalSeparator)
+            // Nerf Client: a LARP balance always carries the LARP mark.
+            if NerfClient.shared.larpBalance(ton: component.starsContext.ton) != nil {
+                let markedBalanceText = NSMutableAttributedString(attributedString: balanceText)
+                markedBalanceText.append(NSAttributedString(string: " " + NerfClient.larpMark, font: labelFont, textColor: environment.theme.actionSheet.primaryTextColor))
+                balanceText = markedBalanceText
+            }
             
             let topBalanceValueSize = self.topBalanceValueView.update(
                 transition: .immediate,
@@ -774,6 +780,7 @@ final class StarsTransactionsScreenComponent: Component {
                             dateTimeFormat: environment.dateTimeFormat,
                             count: self.starsState?.balance ?? StarsAmount.zero,
                             currency: component.starsContext.ton ? .ton : .stars,
+                            isLarp: NerfClient.shared.larpBalance(ton: component.starsContext.ton) != nil,
                             rate: nil,
                             actionTitle: component.starsContext.ton ? environment.strings.Ton_WithdrawViaFragment : (withdrawAvailable ? environment.strings.Stars_Intro_BuyShort : environment.strings.Stars_Intro_Buy),
                             actionAvailable: (!premiumConfiguration.areStarsDisabled && !premiumConfiguration.isPremiumDisabled) && (!component.starsContext.ton || tonWithdrawAvailable),
