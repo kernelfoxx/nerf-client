@@ -523,7 +523,7 @@ private final class GiftSetupScreenComponent: Component {
             }
             let entities = generateChatInputTextEntities(textInputText)
 
-            if NerfClient.shared.settings.larpGiftsEnabled, peerId.namespace == Namespaces.Peer.CloudUser, peerId != context.account.peerId, case let .starGift(gift, _) = component.subject {
+            if NerfClient.shared.settings.larpGiftsEnabled, peerId.namespace == Namespaces.Peer.CloudUser, case let .starGift(gift, _) = component.subject {
                 var price = gift.price
                 if self.includeUpgrade, let upgradeStars = gift.upgradeStars {
                     price += upgradeStars

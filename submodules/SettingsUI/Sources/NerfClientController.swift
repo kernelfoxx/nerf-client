@@ -21,8 +21,9 @@ private final class NerfClientControllerArguments {
     let updateLarpPremium: (Bool) -> Void
     let updateLarpUsernameEnabled: (Bool) -> Void
     let updateLarpUsername: (String) -> Void
+    let openLarpGift: (NerfLarpGiftRow) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -35,6 +36,7 @@ private final class NerfClientControllerArguments {
         self.updateLarpPremium = updateLarpPremium
         self.updateLarpUsernameEnabled = updateLarpUsernameEnabled
         self.updateLarpUsername = updateLarpUsername
+        self.openLarpGift = openLarpGift
     }
 }
 
@@ -96,6 +98,14 @@ private enum NerfFeature: Int32, CaseIterable {
     }
 }
 
+private struct NerfLarpGiftRow: Equatable {
+    let peerId: EnginePeer.Id
+    let localMessageId: Int32
+    let title: String
+    let recipient: String
+    let canUpgrade: Bool
+}
+
 private enum NerfClientSection: Int32 {
     case features
     case larpGift
@@ -103,6 +113,7 @@ private enum NerfClientSection: Int32 {
     case larpTon
     case larpNumber
     case larpProfile
+    case larpGiftList
 }
 
 private enum NerfClientEntry: ItemListNodeEntry {
@@ -130,6 +141,9 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpUsernameToggle(Bool)
     case larpUsernameInput(String)
     case larpProfileInfo
+    case larpGiftListHeader
+    case larpGiftListItem(Int32, NerfLarpGiftRow)
+    case larpGiftListInfo
 
     var section: ItemListSectionId {
         switch self {
@@ -145,6 +159,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return NerfClientSection.larpNumber.rawValue
         case .larpProfileHeader, .larpPremiumToggle, .larpUsernameToggle, .larpUsernameInput, .larpProfileInfo:
             return NerfClientSection.larpProfile.rawValue
+        case .larpGiftListHeader, .larpGiftListItem, .larpGiftListInfo:
+            return NerfClientSection.larpGiftList.rawValue
         }
     }
 
@@ -198,6 +214,12 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return 19
         case .larpProfileInfo:
             return 20
+        case .larpGiftListHeader:
+            return 1000
+        case let .larpGiftListItem(index, _):
+            return 1001 + index
+        case .larpGiftListInfo:
+            return 100000
         }
     }
 
@@ -276,6 +298,14 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: "@"), text: text, placeholder: "username", type: .username, sectionId: self.section, textUpdated: { value in
                 arguments.updateLarpUsername(value)
             }, action: {})
+        case .larpGiftListHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "МОИ LARP-ГИФТЫ", sectionId: self.section)
+        case let .larpGiftListItem(_, row):
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: row.title, label: row.recipient, sectionId: self.section, style: .blocks, disclosureStyle: row.canUpgrade ? .arrow : .none, action: {
+                arguments.openLarpGift(row)
+            })
+        case .larpGiftListInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Нажми на обычный гифт, чтобы сделать LARP-улучшение: модель, фон и узор выбираются из настоящих вариантов улучшения этого гифта. Цена улучшения списывается так же, как при LARP-отправке. Гифт себе тоже можно выдать: выбери себя получателем."), sectionId: self.section)
         case .larpProfileInfo:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Значок Premium и юзернейм подменяются только на экране этого устройства, в настройках и твоём профиле, и всегда с пометкой LARP. Настоящий аккаунт не меняется."), sectionId: self.section)
         case .larpNumberInfo:
@@ -315,7 +345,7 @@ private func larpTonNano(text: String) -> Int64 {
     return overflow ? Int64.max : product + fraction
 }
 
-private func nerfClientControllerEntries(settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int) -> [NerfClientEntry] {
+private func nerfClientControllerEntries(settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int, larpGiftRows: [NerfLarpGiftRow]) -> [NerfClientEntry] {
     var entries: [NerfClientEntry] = []
     entries.append(.featuresHeader)
     for feature in NerfFeature.allCases {
@@ -351,6 +381,13 @@ private func nerfClientControllerEntries(settings: NerfClient.Settings, inputSta
         entries.append(.larpUsernameInput(settings.larpUsername))
     }
     entries.append(.larpProfileInfo)
+    if !larpGiftRows.isEmpty {
+        entries.append(.larpGiftListHeader)
+        for (index, row) in larpGiftRows.enumerated() {
+            entries.append(.larpGiftListItem(Int32(index), row))
+        }
+        entries.append(.larpGiftListInfo)
+    }
     return entries
 }
 
@@ -456,6 +493,41 @@ public func nerfClientController(context: AccountContext) -> ViewController {
             current.larpUsername = value
             return current
         }
+    }, openLarpGift: { row in
+        guard row.canUpgrade else {
+            return
+        }
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        let alertController = textAlertController(context: context, title: nil, text: "Сделать LARP-улучшение «\(row.title)»?", actions: [
+            TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}),
+            TextAlertAction(type: .defaultAction, title: "Улучшить", action: {
+                let starsContext = context.starsContext
+                // The balance here is the LARP one while LARP Stars is on, else the real one; only LARP Stars are spent.
+                let _ = (context.engine.payments.upgradeLarpGift(peerId: row.peerId, localMessageId: row.localMessageId, spend: { price in
+                    guard let balance = starsContext?.currentState?.balance, balance >= StarsAmount(value: price, nanos: 0) else {
+                        return false
+                    }
+                    return NerfClient.shared.spendLarpBalance(ton: false, amount: price)
+                })
+                |> deliverOnMainQueue).startStandalone(next: { result in
+                    let text: String
+                    switch result {
+                    case let .upgraded(gift):
+                        if case let .unique(uniqueGift) = gift {
+                            text = "Готово: \(uniqueGift.title) #\(uniqueGift.number) \(NerfClient.larpMark)"
+                        } else {
+                            text = "Готово"
+                        }
+                    case .notEnoughBalance:
+                        text = "Недостаточно звёзд на балансе для улучшения."
+                    case .unavailable:
+                        text = "Этот гифт нельзя улучшить."
+                    }
+                    presentControllerImpl?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
+                })
+            })
+        ])
+        presentControllerImpl?(alertController)
     })
 
     let larpGiftCount = NerfClient.shared.larpGiftsSignal
@@ -464,11 +536,42 @@ public func nerfClientController(context: AccountContext) -> ViewController {
     }
     |> distinctUntilChanged
 
-    let signal = combineLatest(context.sharedContext.presentationData, NerfClient.shared.settingsSignal, inputState.get(), larpGiftCount)
+    let larpGiftRows: Signal<[NerfLarpGiftRow], NoError> = NerfClient.shared.larpGiftsSignal
+    |> mapToSignal { gifts -> Signal<[NerfLarpGiftRow], NoError> in
+        let gifts = gifts.filter { $0.accountPeerId == accountPeerId }
+        let peerIds = Array(Set(gifts.map { EnginePeer.Id($0.peerId) }))
+        return context.engine.data.get(EngineDataMap(
+            peerIds.map(TelegramEngine.EngineData.Item.Peer.Peer.init(id:))
+        ))
+        |> map { peers -> [NerfLarpGiftRow] in
+            return gifts.map { gift in
+                let peerId = EnginePeer.Id(gift.peerId)
+                let title: String
+                let canUpgrade: Bool
+                switch gift.gift {
+                case let .generic(genericGift):
+                    title = genericGift.title ?? "Gift"
+                    canUpgrade = true
+                case let .unique(uniqueGift):
+                    title = "\(uniqueGift.title) #\(uniqueGift.number)"
+                    canUpgrade = false
+                }
+                var recipient = ""
+                if gift.peerId == accountPeerId {
+                    recipient = "Себе"
+                } else if let maybePeer = peers[peerId], let peer = maybePeer {
+                    recipient = peer.compactDisplayTitle
+                }
+                return NerfLarpGiftRow(peerId: peerId, localMessageId: gift.localMessageId, title: title, recipient: recipient, canUpgrade: canUpgrade)
+            }
+        }
+    }
+
+    let signal = combineLatest(context.sharedContext.presentationData, NerfClient.shared.settingsSignal, inputState.get(), larpGiftCount, larpGiftRows)
     |> deliverOnMainQueue
-    |> map { presentationData, settings, inputState, larpGiftCount -> (ItemListControllerState, (ItemListNodeState, Any)) in
+    |> map { presentationData, settings, inputState, larpGiftCount, larpGiftRows -> (ItemListControllerState, (ItemListNodeState, Any)) in
         let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Nerf Client"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
-        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: nerfClientControllerEntries(settings: settings, inputState: inputState, larpGiftCount: larpGiftCount), style: .blocks, emptyStateItem: nil, animateChanges: true)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: nerfClientControllerEntries(settings: settings, inputState: inputState, larpGiftCount: larpGiftCount, larpGiftRows: larpGiftRows), style: .blocks, emptyStateItem: nil, animateChanges: true)
 
         return (controllerState, (listState, arguments))
     }

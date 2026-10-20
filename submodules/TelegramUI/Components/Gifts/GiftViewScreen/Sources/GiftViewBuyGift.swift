@@ -29,7 +29,7 @@ public func buyStarGiftImpl(
     let action: (CurrencyAmount.Currency, GiftMessageScreen.Result, @escaping () -> Void) -> Void = { currency, message, beforeCompletion in
         // Nerf Client: nothing is bought. The gift is added as a local message marked LARP,
         // visible only on this device.
-        if NerfClient.shared.settings.larpGiftsEnabled, recipientPeerId.namespace == Namespaces.Peer.CloudUser, recipientPeerId != context.account.peerId {
+        if NerfClient.shared.settings.larpGiftsEnabled, recipientPeerId.namespace == Namespaces.Peer.CloudUser {
             // The balance here is the LARP one while LARP Stars/TON is on, else the real one; only LARP balance is spent.
             let isTon = currency == .ton
             let price = acceptedPrice ?? uniqueGift.resellAmounts?.first(where: { $0.currency == currency })

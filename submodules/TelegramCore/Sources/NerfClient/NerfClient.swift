@@ -328,9 +328,6 @@ func _internal_clearLarpGifts(account: Account) -> Signal<Void, NoError> {
 
 func nerfProfileGifts(account: Account, peerId: EnginePeer.Id) -> Signal<[ProfileGiftsContext.State.StarGift], NoError> {
     let accountPeerId = account.peerId
-    if peerId == accountPeerId {
-        return .single([])
-    }
     return combineLatest(
         NerfClient.shared.settingsSignal |> map { $0.larpGiftsEnabled } |> distinctUntilChanged,
         NerfClient.shared.larpGiftsSignal,
@@ -378,4 +375,126 @@ func nerfApplyLarpBalance(_ state: StarsContext.State?, ton: Bool) -> StarsConte
     }
     state.balance = StarsAmount(value: value, nanos: 0)
     return state
+}
+
+public enum LarpGiftUpgradeResult {
+    case upgraded(StarGift)
+    case notEnoughBalance
+    case unavailable
+}
+
+private func nerfStoreMessage(_ message: Message, media: [Media]) -> StoreMessage {
+    return StoreMessage(id: message.id, customStableId: nil, globallyUniqueId: message.globallyUniqueId, groupingKey: message.groupingKey, threadId: message.threadId, timestamp: message.timestamp, flags: StoreMessageFlags(message.flags), tags: message.tags, globalTags: message.globalTags, localTags: message.localTags, forwardInfo: nil, authorId: message.author?.id, text: message.text, attributes: message.attributes, media: media)
+}
+
+/// Picks one attribute, rarer ones less often, as a real upgrade does.
+private func nerfPickAttribute(_ attributes: [StarGift.UniqueGift.Attribute]) -> StarGift.UniqueGift.Attribute? {
+    func weight(_ rarity: StarGift.UniqueGift.Attribute.Rarity) -> Int {
+        switch rarity {
+        case let .permille(value):
+            return max(1, Int(value))
+        case .uncommon:
+            return 80
+        case .rare:
+            return 30
+        case .epic:
+            return 10
+        case .legendary:
+            return 3
+        }
+    }
+    let weighted: [(StarGift.UniqueGift.Attribute, Int)] = attributes.compactMap { attribute in
+        switch attribute {
+        case let .model(_, _, rarity, _), let .pattern(_, _, rarity):
+            return (attribute, weight(rarity))
+        case let .backdrop(_, _, _, _, _, _, rarity):
+            return (attribute, weight(rarity))
+        case .originalInfo:
+            return nil
+        }
+    }
+    let total = weighted.reduce(0, { $0 + $1.1 })
+    guard total > 0 else {
+        return nil
+    }
+    var value = Int.random(in: 0 ..< total)
+    for (attribute, weight) in weighted {
+        if value < weight {
+            return attribute
+        }
+        value -= weight
+    }
+    return weighted.last?.0
+}
+
+/// Turns a LARP gift into a unique one built from the gift's real upgrade variants. `spend` is
+/// asked for the upgrade price and returns false when the balance is too low.
+func _internal_upgradeLarpGift(account: Account, peerId: EnginePeer.Id, localMessageId: Int32, spend: @escaping (Int64) -> Bool) -> Signal<LarpGiftUpgradeResult, NoError> {
+    let accountPeerId = account.peerId.toInt64()
+    guard let record = NerfClient.shared.larpGifts.first(where: { $0.accountPeerId == accountPeerId && $0.peerId == peerId.toInt64() && $0.localMessageId == localMessageId }), case let .generic(genericGift) = record.gift else {
+        return .single(.unavailable)
+    }
+    return _internal_starGiftUpgradePreview(account: account, giftId: genericGift.id)
+    |> mapToSignal { preview -> Signal<LarpGiftUpgradeResult, NoError> in
+        guard let preview else {
+            return .single(.unavailable)
+        }
+        let models = preview.attributes.filter { if case .model = $0 { return true } else { return false } }
+        let patterns = preview.attributes.filter { if case .pattern = $0 { return true } else { return false } }
+        let backdrops = preview.attributes.filter { if case .backdrop = $0 { return true } else { return false } }
+        guard let model = nerfPickAttribute(models), let pattern = nerfPickAttribute(patterns), let backdrop = nerfPickAttribute(backdrops) else {
+            return .single(.unavailable)
+        }
+        let price = genericGift.upgradeStars ?? preview.prices.first?.stars ?? 0
+        if !spend(price) {
+            return .single(.notEnoughBalance)
+        }
+        
+        let total = max(1, genericGift.availability?.total ?? 100_000)
+        let number = Int32.random(in: 1 ... total)
+        let uniqueId = Int64.random(in: 1 ... Int64.max)
+        let uniqueGift = StarGift.UniqueGift(
+            id: uniqueId,
+            giftId: genericGift.id,
+            title: genericGift.title ?? "Gift",
+            number: number,
+            slug: "larp-\(uniqueId)",
+            owner: .peerId(peerId),
+            attributes: [model, pattern, backdrop],
+            availability: StarGift.UniqueGift.Availability(issued: total, total: total),
+            giftAddress: nil,
+            resellAmounts: nil,
+            resellForTonOnly: false,
+            releasedBy: genericGift.releasedBy,
+            valueAmount: nil,
+            valueCurrency: nil,
+            valueUsdAmount: nil,
+            flags: [],
+            themePeerId: nil,
+            peerColor: nil,
+            hostPeerId: nil,
+            minOfferStars: nil,
+            craftChancePermille: nil
+        )
+        let gift: StarGift = .unique(uniqueGift)
+        
+        return account.postbox.transaction { transaction -> LarpGiftUpgradeResult in
+            let messageId = MessageId(peerId: peerId, namespace: Namespaces.Message.Local, id: localMessageId)
+            if let message = transaction.getMessage(messageId) {
+                let action = TelegramMediaAction(action: .starGiftUnique(gift: gift, isUpgrade: true, isTransferred: false, savedToProfile: false, canExportDate: nil, transferStars: nil, isRefunded: false, isPrepaidUpgrade: false, peerId: nil, senderId: account.peerId, savedId: nil, resaleAmount: nil, canTransferDate: nil, canResaleDate: nil, dropOriginalDetailsStars: nil, assigned: false, fromOffer: false, canCraftAt: nil, isCrafted: false, text: record.text, entities: nil, nameHidden: false))
+                transaction.updateMessage(messageId, update: { _ in
+                    return .update(nerfStoreMessage(message, media: [action]))
+                })
+            }
+            NerfClient.shared.updateLarpGifts { current in
+                return current.map { item in
+                    if item.accountPeerId == accountPeerId && item.peerId == peerId.toInt64() && item.localMessageId == localMessageId {
+                        return NerfClient.LarpGift(accountPeerId: item.accountPeerId, peerId: item.peerId, localMessageId: item.localMessageId, gift: gift, date: item.date, text: item.text)
+                    }
+                    return item
+                }
+            }
+            return .upgraded(gift)
+        }
+    }
 }
