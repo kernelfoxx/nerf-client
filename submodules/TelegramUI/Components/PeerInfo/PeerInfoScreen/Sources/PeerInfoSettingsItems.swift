@@ -572,6 +572,10 @@ func settingsEditingItems(data: PeerInfoScreenData?, state: PeerInfoState, conte
 
 /// Nerf Client: a LARP balance always carries the LARP mark.
 private func nerfLarpMarked(_ text: NSAttributedString, ton: Bool, font: UIFont, color: UIColor) -> NSAttributedString {
+    // Streamer Mode hides the balance altogether.
+    if NerfClient.shared.isStreamerMode {
+        return NSAttributedString(string: NerfClient.streamerMask, font: font, textColor: color)
+    }
     guard NerfClient.shared.larpBalance(ton: ton) != nil else {
         return text
     }

@@ -106,6 +106,8 @@ func infoItems(
         let ItemAbout = 3003
         let ItemNote = 3004
         let ItemAppFooter = 3005
+        let ItemNerfUserId = 3100
+        let ItemNerfRegistration = 3101
         let ItemAffiliate = 4000
         let ItemAffiliateInfo = 4001
         let ItemBusinessHours = 5000
@@ -222,7 +224,29 @@ func infoItems(
                 )
             )
         }
-        
+
+        // Nerf Client: user ID (tap to copy), and the registration month when the server provides it.
+        let nerfSettings = NerfClient.shared.settings
+        let isOwnPeer = user.id == context.account.peerId
+        if nerfSettings.showUserId && !(isOwnPeer && nerfSettings.streamerMode) {
+            let userIdText = "\(user.id.id._internalGetInt64Value())"
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemNerfUserId, label: "ID", text: userIdText, textColor: .primary, action: { _, _ in
+                UIPasteboard.general.string = userIdText
+                HapticFeedback().tap()
+            }, requestLayout: { animated in
+                interaction.requestLayout(animated)
+            }))
+
+            if let registrationDate = (data.cachedData as? CachedUserData)?.peerStatusSettings?.registrationDate {
+                let components = registrationDate.components(separatedBy: ".")
+                if components.count == 2, let month = Int32(components[0]), let year = Int32(components[1]) {
+                    items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemNerfRegistration, label: presentationData.strings.Chat_NonContactUser_Registration, text: stringForMonth(strings: presentationData.strings, month: month - 1, ofYear: year - 1900), textColor: .primary, action: nil, requestLayout: { animated in
+                        interaction.requestLayout(animated)
+                    }))
+                }
+            }
+        }
+
         if let cachedData = data.cachedData as? CachedUserData {
             if let birthday = cachedData.birthday {
                 let isBirthdayToday = hasBirthdayToday(birthday: birthday)

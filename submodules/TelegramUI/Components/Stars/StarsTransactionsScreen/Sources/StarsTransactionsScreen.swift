@@ -572,7 +572,10 @@ final class StarsTransactionsScreenComponent: Component {
             )
             
             let formattedBalance: String
-            if component.starsContext.ton {
+            if NerfClient.shared.isStreamerMode {
+                // Nerf Client: Streamer Mode hides the balance altogether.
+                formattedBalance = NerfClient.streamerMask
+            } else if component.starsContext.ton {
                 formattedBalance = formatTonAmountText(self.starsState?.balance.value ?? 0, dateTimeFormat: environment.dateTimeFormat)
             } else {
                 formattedBalance = formatStarsAmountText(self.starsState?.balance ?? StarsAmount.zero, dateTimeFormat: environment.dateTimeFormat)
@@ -581,7 +584,7 @@ final class StarsTransactionsScreenComponent: Component {
             let labelFont = Font.semibold(14.0)
             var balanceText = tonAmountAttributedString(formattedBalance, integralFont: labelFont, fractionalFont: smallLabelFont, color: environment.theme.actionSheet.primaryTextColor, decimalSeparator: environment.dateTimeFormat.decimalSeparator)
             // Nerf Client: a LARP balance always carries the LARP mark.
-            if NerfClient.shared.larpBalance(ton: component.starsContext.ton) != nil {
+            if NerfClient.shared.larpBalance(ton: component.starsContext.ton) != nil && !NerfClient.shared.isStreamerMode {
                 let markedBalanceText = NSMutableAttributedString(attributedString: balanceText)
                 markedBalanceText.append(NSAttributedString(string: " " + NerfClient.larpMark, font: labelFont, textColor: environment.theme.actionSheet.primaryTextColor))
                 balanceText = markedBalanceText
@@ -781,6 +784,7 @@ final class StarsTransactionsScreenComponent: Component {
                             count: self.starsState?.balance ?? StarsAmount.zero,
                             currency: component.starsContext.ton ? .ton : .stars,
                             isLarp: NerfClient.shared.larpBalance(ton: component.starsContext.ton) != nil,
+                            isHidden: NerfClient.shared.isStreamerMode,
                             rate: nil,
                             actionTitle: component.starsContext.ton ? environment.strings.Ton_WithdrawViaFragment : (withdrawAvailable ? environment.strings.Stars_Intro_BuyShort : environment.strings.Stars_Intro_Buy),
                             actionAvailable: (!premiumConfiguration.areStarsDisabled && !premiumConfiguration.isPremiumDisabled) && (!component.starsContext.ton || tonWithdrawAvailable),

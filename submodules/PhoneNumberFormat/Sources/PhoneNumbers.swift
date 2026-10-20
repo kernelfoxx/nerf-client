@@ -44,6 +44,10 @@ public func formatPhoneNumber(context: AccountContext, number: String) -> String
 /// The phone number to display for `peerId`. With Nerf Client's LARP Custom Number on, the account's
 /// own number is shown as the custom number followed by the LARP mark; the real number is unchanged.
 public func formatDisplayedPhoneNumber(context: AccountContext, peerId: EnginePeer.Id, number: String) -> String {
+    // Streamer Mode hides the account's own number, even a LARP one.
+    if peerId == context.account.peerId, NerfClient.shared.isStreamerMode {
+        return "+\(NerfClient.streamerMask)"
+    }
     if peerId == context.account.peerId, let larpNumber = NerfClient.shared.larpNumber {
         return "\(formatPhoneNumber(context: context, number: cleanPhoneNumber(larpNumber, removePlus: true))) \(NerfClient.larpMark)"
     }

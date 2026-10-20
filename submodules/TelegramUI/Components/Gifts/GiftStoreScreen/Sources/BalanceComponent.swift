@@ -98,9 +98,13 @@ final class BalanceComponent: Component {
             // Nerf Client: a LARP balance always carries the LARP mark.
             let starsLarpMark = NerfClient.shared.larpBalance(ton: false) != nil ? " \(NerfClient.larpMark)" : ""
             let tonLarpMark = NerfClient.shared.larpBalance(ton: true) != nil ? " \(NerfClient.larpMark)" : ""
-            let starsBalanceString = "**⭐️\(presentationStringsFormattedNumber(Int32(clamping: self.starsBalance), presentationData.dateTimeFormat.groupingSeparator))\(starsLarpMark)**"
+            // Nerf Client: Streamer Mode hides the balance altogether.
+            let isStreamerMode = NerfClient.shared.isStreamerMode
+            let starsValue = isStreamerMode ? NerfClient.streamerMask : "\(presentationStringsFormattedNumber(Int32(clamping: self.starsBalance), presentationData.dateTimeFormat.groupingSeparator))\(starsLarpMark)"
+            let starsBalanceString = "**⭐️\(starsValue)**"
             if self.tonBalance > 0 {
-                let tonBalanceString = "**💎\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))\(tonLarpMark)**"
+                let tonValue = isStreamerMode ? NerfClient.streamerMask : "\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))\(tonLarpMark)"
+                let tonBalanceString = "**💎\(tonValue)**"
                 rawString = starsBalanceString + "\n" + tonBalanceString
             } else {
                 rawString = presentationData.strings.Stars_Purchase_Balance + "\n" + starsBalanceString

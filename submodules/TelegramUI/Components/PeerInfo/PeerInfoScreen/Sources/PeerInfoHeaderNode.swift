@@ -1229,7 +1229,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             if self.isSettings, case let .user(user) = peer {
                 var subtitle = formatDisplayedPhoneNumber(context: self.context, peerId: user.id, number: user.phone ?? "")
                 
-                if let mainUsername = user.addressName, !mainUsername.isEmpty {
+                if let mainUsername = user.addressName, !mainUsername.isEmpty, !NerfClient.shared.isStreamerMode {
                     subtitle = "\(subtitle) • @\(mainUsername)"
                 }
                 subtitleStringText = subtitle

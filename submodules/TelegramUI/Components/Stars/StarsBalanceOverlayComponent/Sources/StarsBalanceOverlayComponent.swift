@@ -142,9 +142,9 @@ public final class StarsBalanceOverlayComponent: Component {
                 let larpMark = NerfClient.shared.larpBalance(ton: component.currency == .ton) != nil ? " \(NerfClient.larpMark)" : ""
                 switch component.currency {
                 case .stars:
-                    balanceString = "**⭐️\(balance)\(larpMark)**"
+                    balanceString = NerfClient.shared.isStreamerMode ? "**⭐️\(NerfClient.streamerMask)**" : "**⭐️\(balance)\(larpMark)**"
                 case .ton:
-                    balanceString = "**💎\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))\(larpMark)**"
+                    balanceString = NerfClient.shared.isStreamerMode ? "**💎\(NerfClient.streamerMask)**" : "**💎\(formatTonAmountText(self.tonBalance, dateTimeFormat: presentationData.dateTimeFormat))\(larpMark)**"
                 }
                 rawString = presentationData.strings.StarsBalance_YourBalance(balanceString).string
             } else {

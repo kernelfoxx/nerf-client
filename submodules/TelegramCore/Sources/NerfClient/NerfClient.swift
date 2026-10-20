@@ -11,6 +11,8 @@ public final class NerfClient {
     public static let shared = NerfClient()
 
     public static let larpMark = "LARP"
+    /// What Streamer Mode shows in place of hidden values.
+    public static let streamerMask = "•••"
 
     public struct Settings: Equatable {
         public var larpGiftsEnabled: Bool
@@ -21,8 +23,10 @@ public final class NerfClient {
         public var larpTonEnabled: Bool
         /// In nanotons, as `StarsAmount.value` holds for a TON balance.
         public var larpTonNano: Int64
+        public var streamerMode: Bool
+        public var showUserId: Bool
 
-        public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64) {
+        public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64, streamerMode: Bool, showUserId: Bool) {
             self.larpGiftsEnabled = larpGiftsEnabled
             self.larpNumberEnabled = larpNumberEnabled
             self.larpNumber = larpNumber
@@ -30,6 +34,8 @@ public final class NerfClient {
             self.larpStars = larpStars
             self.larpTonEnabled = larpTonEnabled
             self.larpTonNano = larpTonNano
+            self.streamerMode = streamerMode
+            self.showUserId = showUserId
         }
     }
 
@@ -55,6 +61,9 @@ public final class NerfClient {
         static let larpStars = "nerf.larpStars"
         static let larpTonEnabled = "nerf.larpTonEnabled"
         static let larpTonNano = "nerf.larpTonNano"
+        static let streamerMode = "nerf.streamerMode"
+        // Stored inverted so that a missing value means "shown".
+        static let hideUserId = "nerf.hideUserId"
     }
 
     private let defaults = UserDefaults.standard
@@ -73,7 +82,9 @@ public final class NerfClient {
             larpStarsEnabled: defaults.bool(forKey: Keys.larpStarsEnabled),
             larpStars: (defaults.object(forKey: Keys.larpStars) as? NSNumber)?.int64Value ?? 0,
             larpTonEnabled: defaults.bool(forKey: Keys.larpTonEnabled),
-            larpTonNano: (defaults.object(forKey: Keys.larpTonNano) as? NSNumber)?.int64Value ?? 0
+            larpTonNano: (defaults.object(forKey: Keys.larpTonNano) as? NSNumber)?.int64Value ?? 0,
+            streamerMode: defaults.bool(forKey: Keys.streamerMode),
+            showUserId: !defaults.bool(forKey: Keys.hideUserId)
         )
         var larpGifts: [LarpGift] = []
         if let data = defaults.data(forKey: Keys.larpGifts), let value = try? AdaptedPostboxDecoder().decode(StoredLarpGifts.self, from: data) {
@@ -108,7 +119,13 @@ public final class NerfClient {
         self.defaults.set(NSNumber(value: updated.larpStars), forKey: Keys.larpStars)
         self.defaults.set(updated.larpTonEnabled, forKey: Keys.larpTonEnabled)
         self.defaults.set(NSNumber(value: updated.larpTonNano), forKey: Keys.larpTonNano)
+        self.defaults.set(updated.streamerMode, forKey: Keys.streamerMode)
+        self.defaults.set(!updated.showUserId, forKey: Keys.hideUserId)
         self.settingsPromise.set(updated)
+    }
+    
+    public var isStreamerMode: Bool {
+        return self.settings.streamerMode
     }
     
     /// The LARP balance shown instead of the real one (Stars, or nanotons for TON), or nil when it is off.

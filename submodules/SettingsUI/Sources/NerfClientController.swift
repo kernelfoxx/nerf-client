@@ -17,8 +17,10 @@ private final class NerfClientControllerArguments {
     let updateLarpStars: (String) -> Void
     let updateLarpTonEnabled: (Bool) -> Void
     let updateLarpTon: (String) -> Void
+    let updateStreamerMode: (Bool) -> Void
+    let updateShowUserId: (Bool) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateStreamerMode: @escaping (Bool) -> Void, updateShowUserId: @escaping (Bool) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -27,10 +29,13 @@ private final class NerfClientControllerArguments {
         self.updateLarpStars = updateLarpStars
         self.updateLarpTonEnabled = updateLarpTonEnabled
         self.updateLarpTon = updateLarpTon
+        self.updateStreamerMode = updateStreamerMode
+        self.updateShowUserId = updateShowUserId
     }
 }
 
 private enum NerfClientSection: Int32 {
+    case features
     case larpGift
     case larpStars
     case larpTon
@@ -38,6 +43,10 @@ private enum NerfClientSection: Int32 {
 }
 
 private enum NerfClientEntry: ItemListNodeEntry {
+    case featuresHeader
+    case streamerModeToggle(Bool)
+    case showUserIdToggle(Bool)
+    case featuresInfo
     case larpGiftHeader
     case larpGiftToggle(Bool)
     case larpGiftClear(Int)
@@ -57,6 +66,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
+        case .featuresHeader, .streamerModeToggle, .showUserIdToggle, .featuresInfo:
+            return NerfClientSection.features.rawValue
         case .larpGiftHeader, .larpGiftToggle, .larpGiftClear, .larpGiftInfo:
             return NerfClientSection.larpGift.rawValue
         case .larpStarsHeader, .larpStarsToggle, .larpStarsInput, .larpStarsInfo:
@@ -70,6 +81,14 @@ private enum NerfClientEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
+        case .featuresHeader:
+            return -4
+        case .streamerModeToggle:
+            return -3
+        case .showUserIdToggle:
+            return -2
+        case .featuresInfo:
+            return -1
         case .larpGiftHeader:
             return 0
         case .larpGiftToggle:
@@ -112,6 +131,18 @@ private enum NerfClientEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! NerfClientControllerArguments
         switch self {
+        case .featuresHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "ФУНКЦИИ", sectionId: self.section)
+        case let .streamerModeToggle(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "Режим стримера", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateStreamerMode(value)
+            })
+        case let .showUserIdToggle(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "ID и дата регистрации", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateShowUserId(value)
+            })
+        case .featuresInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Режим стримера скрывает твой номер, юзернейм, ID и баланс звёзд и TON. ID пользователя показывается в профиле, по нажатию копируется; дата регистрации — если её прислал Telegram."), sectionId: self.section)
         case .larpGiftHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP SEND GIFT", sectionId: self.section)
         case let .larpGiftToggle(value):
@@ -197,6 +228,10 @@ private func larpTonNano(text: String) -> Int64 {
 
 private func nerfClientControllerEntries(settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int) -> [NerfClientEntry] {
     var entries: [NerfClientEntry] = []
+    entries.append(.featuresHeader)
+    entries.append(.streamerModeToggle(settings.streamerMode))
+    entries.append(.showUserIdToggle(settings.showUserId))
+    entries.append(.featuresInfo)
     entries.append(.larpGiftHeader)
     entries.append(.larpGiftToggle(settings.larpGiftsEnabled))
     entries.append(.larpGiftClear(larpGiftCount))
@@ -298,6 +333,18 @@ public func nerfClientController(context: AccountContext) -> ViewController {
         NerfClient.shared.updateSettings { current in
             var current = current
             current.larpTonNano = larpTonNano(text: value)
+            return current
+        }
+    }, updateStreamerMode: { value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.streamerMode = value
+            return current
+        }
+    }, updateShowUserId: { value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.showUserId = value
             return current
         }
     })

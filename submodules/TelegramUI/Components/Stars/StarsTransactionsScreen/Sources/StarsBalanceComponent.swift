@@ -19,6 +19,7 @@ final class StarsBalanceComponent: Component {
     let count: StarsAmount
     let currency: CurrencyAmount.Currency
     let isLarp: Bool
+    let isHidden: Bool
     let rate: Double?
     let actionTitle: String
     let actionAvailable: Bool
@@ -39,6 +40,7 @@ final class StarsBalanceComponent: Component {
         count: StarsAmount,
         currency: CurrencyAmount.Currency,
         isLarp: Bool = false,
+        isHidden: Bool = false,
         rate: Double?,
         actionTitle: String,
         actionAvailable: Bool,
@@ -58,6 +60,7 @@ final class StarsBalanceComponent: Component {
         self.count = count
         self.currency = currency
         self.isLarp = isLarp
+        self.isHidden = isHidden
         self.rate = rate
         self.actionTitle = actionTitle
         self.actionAvailable = actionAvailable
@@ -101,6 +104,9 @@ final class StarsBalanceComponent: Component {
             return false
         }
         if lhs.isLarp != rhs.isLarp {
+            return false
+        }
+        if lhs.isHidden != rhs.isHidden {
             return false
         }
         if lhs.count != rhs.count {
@@ -183,12 +189,16 @@ final class StarsBalanceComponent: Component {
             let sideInset: CGFloat = 16.0
             var contentHeight: CGFloat = sideInset
             
-            let formattedLabel: String
+            var formattedLabel: String
             switch component.currency {
             case .ton:
                 formattedLabel = formatTonAmountText(component.count.value, dateTimeFormat: component.dateTimeFormat, maxDecimalPositions: 3)
             case .stars:
                 formattedLabel = formatStarsAmountText(component.count, dateTimeFormat: component.dateTimeFormat)
+            }
+            // Nerf Client: Streamer Mode hides the balance altogether.
+            if component.isHidden {
+                formattedLabel = NerfClient.streamerMask
             }
             let labelFont: UIFont
             if formattedLabel.contains(component.dateTimeFormat.decimalSeparator) {
@@ -199,7 +209,7 @@ final class StarsBalanceComponent: Component {
             let smallLabelFont = Font.with(size: 32.0, design: .round, weight: .regular)
             var balanceString = tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: component.theme.list.itemPrimaryTextColor, decimalSeparator: component.dateTimeFormat.decimalSeparator)
             // Nerf Client: a LARP balance always carries the LARP mark.
-            if component.isLarp {
+            if component.isLarp && !component.isHidden {
                 let markedBalanceString = NSMutableAttributedString(attributedString: balanceString)
                 markedBalanceString.append(NSAttributedString(string: " " + NerfClient.larpMark, font: smallLabelFont, textColor: component.theme.list.itemPrimaryTextColor))
                 balanceString = markedBalanceString
