@@ -40,6 +40,7 @@ public final class NerfClient {
         public var larpViewsMultiplier: Int32 = 1
         public var larpBoostLevel: Int32 = 0
         public var larpWornGiftId: Int64 = 0
+        public var unlockGramWallet: Bool = false
         public var larpUsernameEnabled: Bool = false
         public var larpUsername: String = ""
 
@@ -96,6 +97,7 @@ public final class NerfClient {
         static let larpViewsMultiplier = "nerf.larpViewsMultiplier"
         static let larpBoostLevel = "nerf.larpBoostLevel"
         static let larpWornGiftId = "nerf.larpWornGiftId"
+        static let unlockGramWallet = "nerf.unlockGramWallet"
         static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
         static let larpUsername = "nerf.larpUsername"
     }
@@ -136,6 +138,7 @@ public final class NerfClient {
         settingsValue.larpViewsMultiplier = max(1, Int32(clamping: defaults.integer(forKey: Keys.larpViewsMultiplier)))
         settingsValue.larpBoostLevel = Int32(clamping: defaults.integer(forKey: Keys.larpBoostLevel))
         settingsValue.larpWornGiftId = Int64(defaults.string(forKey: Keys.larpWornGiftId) ?? "") ?? 0
+        settingsValue.unlockGramWallet = defaults.bool(forKey: Keys.unlockGramWallet)
         settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
         settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
         var larpGifts: [LarpGift] = []
@@ -188,6 +191,7 @@ public final class NerfClient {
         self.defaults.set(Int(updated.larpViewsMultiplier), forKey: Keys.larpViewsMultiplier)
         self.defaults.set(Int(updated.larpBoostLevel), forKey: Keys.larpBoostLevel)
         self.defaults.set("\(updated.larpWornGiftId)", forKey: Keys.larpWornGiftId)
+        self.defaults.set(updated.unlockGramWallet, forKey: Keys.unlockGramWallet)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
         self.settingsPromise.set(updated)

@@ -559,7 +559,8 @@ public struct WalletConfiguration: Equatable, Sendable {
     }
 
     public static func with(appConfiguration: AppConfiguration) -> WalletConfiguration {
-        let isAvailable = appConfiguration.data?["wallet_available"] as? Bool ?? self.defaultValue.isAvailable
+        // Nerf Client: Unlock Gram Wallet shows the wallet even when the server has not enabled it yet.
+        let isAvailable = (appConfiguration.data?["wallet_available"] as? Bool ?? self.defaultValue.isAvailable) || NerfClient.shared.settings.unlockGramWallet
         var explorerUrl = self.defaultValue.explorerUrl
         if let value = appConfiguration.data?["ton_blockchain_explorer_url"] as? String {
             explorerUrl = value
