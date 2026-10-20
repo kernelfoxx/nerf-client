@@ -3,6 +3,7 @@ import UIKit
 import Display
 import SwiftSignalKit
 import TelegramCore
+import PhoneNumberFormat
 import TelegramPresentationData
 import TelegramUIPreferences
 import ItemListUI
@@ -1722,6 +1723,12 @@ public func selectivePrivacySettingsController(
         var phoneNumber = ""
         if case let .user(user) = peer {
             phoneNumber = user.phone ?? ""
+            // Nerf Client: never show the real number while a LARP / Streamer Mode number is on.
+            if NerfClient.shared.isStreamerMode {
+                phoneNumber = NerfClient.streamerMask
+            } else if let larpNumber = NerfClient.shared.larpNumber {
+                phoneNumber = "\(cleanPhoneNumber(larpNumber, removePlus: true)) \(NerfClient.larpMark)"
+            }
         }
         
         let title: String

@@ -2084,7 +2084,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 if copyPhone, let phone = user.phone, !phone.isEmpty {
                     actions.append(ContextMenuAction(content: .text(title: strongSelf.presentationData.strings.Settings_CopyPhoneNumber, accessibilityLabel: strongSelf.presentationData.strings.Settings_CopyPhoneNumber), action: { [weak self] in
                         if let strongSelf = self {
-                            UIPasteboard.general.string = formatPhoneNumber(context: strongSelf.context, number: phone)
+                            UIPasteboard.general.string = formatDisplayedPhoneNumber(context: strongSelf.context, peerId: user.id, number: phone)
                             
                             let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
                             strongSelf.controller?.present(UndoOverlayController(presentationData: presentationData, content: .copy(text: presentationData.strings.Conversation_PhoneCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)

@@ -67,7 +67,7 @@ extension PeerInfoScreenNode {
                 guard let strongSelf = self else {
                     return
                 }
-                UIPasteboard.general.string = formatPhoneNumber(context: strongSelf.context, number: value)
+                UIPasteboard.general.string = formatDisplayedPhoneNumber(context: strongSelf.context, peerId: strongSelf.peerId, number: value)
                 
                 strongSelf.controller?.present(UndoOverlayController(presentationData: presentationData, content: .copy(text: presentationData.strings.Conversation_PhoneCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
             }

@@ -1214,7 +1214,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             }
             if title.isEmpty {
                 if case let .user(user) = peer, let phone = user.phone {
-                    title = formatPhoneNumber(context: self.context, number: phone)
+                    title = formatDisplayedPhoneNumber(context: self.context, peerId: user.id, number: phone)
                 } else if let addressName = peer.addressName {
                     title = "@\(addressName)"
                 } else {

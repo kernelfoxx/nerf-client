@@ -50,7 +50,8 @@ public enum PrivacyIntroControllerMode {
             case .twoStepVerification:
                 return strings.TwoStepAuth_AdditionalPassword
             case let .changePhoneNumber(phoneNumber):
-                return formatPhoneNumber(context: context, number: phoneNumber)
+                // The account's own number: shown as the LARP / Streamer Mode number when one is on.
+                return formatDisplayedPhoneNumber(context: context, peerId: context.account.peerId, number: phoneNumber)
         }
     }
     
