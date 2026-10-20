@@ -31,6 +31,9 @@ public final class NerfClient {
         public var confirmStickers: Bool = false
         public var confirmVoice: Bool = false
         public var showSeconds: Bool = false
+        public var larpPremium: Bool = false
+        public var larpUsernameEnabled: Bool = false
+        public var larpUsername: String = ""
 
         public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64, streamerMode: Bool, showUserId: Bool) {
             self.larpGiftsEnabled = larpGiftsEnabled
@@ -76,6 +79,9 @@ public final class NerfClient {
         static let confirmStickers = "nerf.confirmStickers"
         static let confirmVoice = "nerf.confirmVoice"
         static let showSeconds = "nerf.showSeconds"
+        static let larpPremium = "nerf.larpPremium"
+        static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
+        static let larpUsername = "nerf.larpUsername"
     }
 
     private let defaults = UserDefaults.standard
@@ -105,6 +111,9 @@ public final class NerfClient {
         settingsValue.confirmStickers = defaults.bool(forKey: Keys.confirmStickers)
         settingsValue.confirmVoice = defaults.bool(forKey: Keys.confirmVoice)
         settingsValue.showSeconds = defaults.bool(forKey: Keys.showSeconds)
+        settingsValue.larpPremium = defaults.bool(forKey: Keys.larpPremium)
+        settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
+        settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
         var larpGifts: [LarpGift] = []
         if let data = defaults.data(forKey: Keys.larpGifts), let value = try? AdaptedPostboxDecoder().decode(StoredLarpGifts.self, from: data) {
             larpGifts = value.gifts
@@ -146,6 +155,9 @@ public final class NerfClient {
         self.defaults.set(updated.confirmStickers, forKey: Keys.confirmStickers)
         self.defaults.set(updated.confirmVoice, forKey: Keys.confirmVoice)
         self.defaults.set(updated.showSeconds, forKey: Keys.showSeconds)
+        self.defaults.set(updated.larpPremium, forKey: Keys.larpPremium)
+        self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
+        self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
         self.settingsPromise.set(updated)
     }
     
@@ -193,6 +205,16 @@ public final class NerfClient {
         let number = settings.larpNumber.trimmingCharacters(in: .whitespaces)
         if settings.larpNumberEnabled && !number.isEmpty {
             return number
+        }
+        return nil
+    }
+
+    /// The custom username (without "@") to show instead of the account's own, or nil when the feature is off.
+    public var larpUsername: String? {
+        let settings = self.settings
+        let username = settings.larpUsername.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "@"))
+        if settings.larpUsernameEnabled && !username.isEmpty {
+            return username
         }
         return nil
     }

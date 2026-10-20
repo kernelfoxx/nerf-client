@@ -18,8 +18,11 @@ private final class NerfClientControllerArguments {
     let updateLarpTonEnabled: (Bool) -> Void
     let updateLarpTon: (String) -> Void
     let updateFeature: (NerfFeature, Bool) -> Void
+    let updateLarpPremium: (Bool) -> Void
+    let updateLarpUsernameEnabled: (Bool) -> Void
+    let updateLarpUsername: (String) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -29,6 +32,9 @@ private final class NerfClientControllerArguments {
         self.updateLarpTonEnabled = updateLarpTonEnabled
         self.updateLarpTon = updateLarpTon
         self.updateFeature = updateFeature
+        self.updateLarpPremium = updateLarpPremium
+        self.updateLarpUsernameEnabled = updateLarpUsernameEnabled
+        self.updateLarpUsername = updateLarpUsername
     }
 }
 
@@ -41,7 +47,7 @@ private enum NerfFeature: Int32, CaseIterable {
     case confirmStickers
     case confirmVoice
     case showSeconds
-    
+
     var title: String {
         switch self {
         case .streamerMode:
@@ -62,7 +68,7 @@ private enum NerfFeature: Int32, CaseIterable {
             return "Секунды во времени"
         }
     }
-    
+
     var keyPath: WritableKeyPath<NerfClient.Settings, Bool> {
         switch self {
         case .streamerMode:
@@ -91,6 +97,7 @@ private enum NerfClientSection: Int32 {
     case larpStars
     case larpTon
     case larpNumber
+    case larpProfile
 }
 
 private enum NerfClientEntry: ItemListNodeEntry {
@@ -113,6 +120,11 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpNumberToggle(Bool)
     case larpNumberInput(String)
     case larpNumberInfo
+    case larpProfileHeader
+    case larpPremiumToggle(Bool)
+    case larpUsernameToggle(Bool)
+    case larpUsernameInput(String)
+    case larpProfileInfo
 
     var section: ItemListSectionId {
         switch self {
@@ -126,6 +138,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return NerfClientSection.larpTon.rawValue
         case .larpNumberHeader, .larpNumberToggle, .larpNumberInput, .larpNumberInfo:
             return NerfClientSection.larpNumber.rawValue
+        case .larpProfileHeader, .larpPremiumToggle, .larpUsernameToggle, .larpUsernameInput, .larpProfileInfo:
+            return NerfClientSection.larpProfile.rawValue
         }
     }
 
@@ -169,6 +183,16 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return 14
         case .larpNumberInfo:
             return 15
+        case .larpProfileHeader:
+            return 16
+        case .larpPremiumToggle:
+            return 17
+        case .larpUsernameToggle:
+            return 18
+        case .larpUsernameInput:
+            return 19
+        case .larpProfileInfo:
+            return 20
         }
     }
 
@@ -233,6 +257,22 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(), text: text, placeholder: "+7 999 123 45 67", type: .regular(capitalization: false, autocorrection: false), sectionId: self.section, textUpdated: { value in
                 arguments.updateLarpNumber(value)
             }, action: {})
+        case .larpProfileHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP PROFILE", sectionId: self.section)
+        case let .larpPremiumToggle(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "LARP Premium", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateLarpPremium(value)
+            })
+        case let .larpUsernameToggle(value):
+            return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: "LARP @username", value: value, sectionId: self.section, style: .blocks, updated: { value in
+                arguments.updateLarpUsernameEnabled(value)
+            })
+        case let .larpUsernameInput(text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: "@"), text: text, placeholder: "username", type: .username, sectionId: self.section, textUpdated: { value in
+                arguments.updateLarpUsername(value)
+            }, action: {})
+        case .larpProfileInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Значок Premium и юзернейм подменяются только на экране этого устройства, в настройках и твоём профиле, и всегда с пометкой LARP. Настоящий аккаунт не меняется."), sectionId: self.section)
         case .larpNumberInfo:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Номер подменяется только на экране этого устройства, справа от него всегда стоит LARP. Настоящий номер в аккаунте не меняется."), sectionId: self.section)
         }
@@ -299,6 +339,13 @@ private func nerfClientControllerEntries(settings: NerfClient.Settings, inputSta
         entries.append(.larpNumberInput(settings.larpNumber))
     }
     entries.append(.larpNumberInfo)
+    entries.append(.larpProfileHeader)
+    entries.append(.larpPremiumToggle(settings.larpPremium))
+    entries.append(.larpUsernameToggle(settings.larpUsernameEnabled))
+    if settings.larpUsernameEnabled {
+        entries.append(.larpUsernameInput(settings.larpUsername))
+    }
+    entries.append(.larpProfileInfo)
     return entries
 }
 
@@ -384,6 +431,24 @@ public func nerfClientController(context: AccountContext) -> ViewController {
         NerfClient.shared.updateSettings { current in
             var current = current
             current[keyPath: feature.keyPath] = value
+            return current
+        }
+    }, updateLarpPremium: { value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpPremium = value
+            return current
+        }
+    }, updateLarpUsernameEnabled: { value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpUsernameEnabled = value
+            return current
+        }
+    }, updateLarpUsername: { value in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpUsername = value
             return current
         }
     })

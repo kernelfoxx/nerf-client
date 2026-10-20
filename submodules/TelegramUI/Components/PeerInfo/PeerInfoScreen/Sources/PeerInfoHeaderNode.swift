@@ -604,6 +604,9 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 credibilityIcon = .scam
             } else if let emojiStatus = peer.emojiStatus {
                 statusIcon = .emojiStatus(emojiStatus)
+            } else if peer.id == self.context.account.peerId && self.isSettings && NerfClient.shared.settings.larpPremium && !NerfClient.shared.isStreamerMode {
+                // Nerf Client: LARP Premium; the settings subtitle carries the LARP mark.
+                credibilityIcon = .premium
             } else if peer.isPremium && !premiumConfiguration.isPremiumDisabled && (peer.id != self.context.account.peerId || self.isSettings || self.isMyProfile) {
                 credibilityIcon = .premium
             } else {
@@ -1229,8 +1232,15 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             if self.isSettings, case let .user(user) = peer {
                 var subtitle = formatDisplayedPhoneNumber(context: self.context, peerId: user.id, number: user.phone ?? "")
                 
-                if let mainUsername = user.addressName, !mainUsername.isEmpty, !NerfClient.shared.isStreamerMode {
-                    subtitle = "\(subtitle) • @\(mainUsername)"
+                if !NerfClient.shared.isStreamerMode {
+                    if let larpUsername = NerfClient.shared.larpUsername {
+                        subtitle = "\(subtitle) • @\(larpUsername) \(NerfClient.larpMark)"
+                    } else if let mainUsername = user.addressName, !mainUsername.isEmpty {
+                        subtitle = "\(subtitle) • @\(mainUsername)"
+                    }
+                    if NerfClient.shared.settings.larpPremium {
+                        subtitle = "\(subtitle) • Premium \(NerfClient.larpMark)"
+                    }
                 }
                 subtitleStringText = subtitle
                 subtitleAttributes = MultiScaleTextState.Attributes(font: Font.regular(17.0), color: .white)
