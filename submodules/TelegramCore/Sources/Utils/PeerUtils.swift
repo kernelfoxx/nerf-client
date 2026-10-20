@@ -252,6 +252,10 @@ public extension Peer {
     }
     
     var isCopyProtectionEnabled: Bool {
+        // Nerf Client: Save Protected Content lets protected media be saved and copied.
+        if NerfClient.shared.settings.saveProtectedContent {
+            return false
+        }
         switch self {
         case let group as TelegramGroup:
             return group.flags.contains(.copyProtectionEnabled)

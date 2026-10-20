@@ -32,6 +32,7 @@ public final class NerfClient {
         public var confirmVoice: Bool = false
         public var showSeconds: Bool = false
         public var larpPremium: Bool = false
+        public var saveProtectedContent: Bool = false
         public var larpUsernameEnabled: Bool = false
         public var larpUsername: String = ""
 
@@ -80,6 +81,7 @@ public final class NerfClient {
         static let confirmVoice = "nerf.confirmVoice"
         static let showSeconds = "nerf.showSeconds"
         static let larpPremium = "nerf.larpPremium"
+        static let saveProtectedContent = "nerf.saveProtectedContent"
         static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
         static let larpUsername = "nerf.larpUsername"
     }
@@ -112,6 +114,7 @@ public final class NerfClient {
         settingsValue.confirmVoice = defaults.bool(forKey: Keys.confirmVoice)
         settingsValue.showSeconds = defaults.bool(forKey: Keys.showSeconds)
         settingsValue.larpPremium = defaults.bool(forKey: Keys.larpPremium)
+        settingsValue.saveProtectedContent = defaults.bool(forKey: Keys.saveProtectedContent)
         settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
         settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
         var larpGifts: [LarpGift] = []
@@ -156,6 +159,7 @@ public final class NerfClient {
         self.defaults.set(updated.confirmVoice, forKey: Keys.confirmVoice)
         self.defaults.set(updated.showSeconds, forKey: Keys.showSeconds)
         self.defaults.set(updated.larpPremium, forKey: Keys.larpPremium)
+        self.defaults.set(updated.saveProtectedContent, forKey: Keys.saveProtectedContent)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
         self.settingsPromise.set(updated)

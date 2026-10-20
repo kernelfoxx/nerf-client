@@ -536,6 +536,10 @@ public extension Message {
     }
     
     func isCopyProtected() -> Bool {
+        // Nerf Client: Save Protected Content lets protected media be saved and copied.
+        if NerfClient.shared.settings.saveProtectedContent {
+            return false
+        }
         if self.flags.contains(.CopyProtected) {
             return true
         } else if let group = self.peers[self.id.peerId] as? TelegramGroup, group.flags.contains(.copyProtectionEnabled) {

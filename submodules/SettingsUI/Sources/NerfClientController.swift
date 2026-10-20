@@ -47,6 +47,7 @@ private enum NerfFeature: Int32, CaseIterable {
     case confirmStickers
     case confirmVoice
     case showSeconds
+    case saveProtectedContent
 
     var title: String {
         switch self {
@@ -66,6 +67,8 @@ private enum NerfFeature: Int32, CaseIterable {
             return "Голосовые через превью"
         case .showSeconds:
             return "Секунды во времени"
+        case .saveProtectedContent:
+            return "Сохранять защищённое"
         }
     }
 
@@ -87,6 +90,8 @@ private enum NerfFeature: Int32, CaseIterable {
             return \.confirmVoice
         case .showSeconds:
             return \.showSeconds
+        case .saveProtectedContent:
+            return \.saveProtectedContent
         }
     }
 }
@@ -210,7 +215,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 arguments.updateFeature(feature, value)
             })
         case .featuresInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Режим стримера скрывает твой номер, юзернейм, ID и баланс звёзд и TON. ID и DC показываются в профилях людей, групп и каналов, по нажатию ID копируется; дата регистрации — если её прислал Telegram. «Голосовые через превью»: после записи голосовое или кружок не уходят сразу, а открываются для проверки."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Режим стримера скрывает твой номер, юзернейм, ID и баланс звёзд и TON. ID и DC показываются в профилях людей, групп и каналов, по нажатию ID копируется; дата регистрации — если её прислал Telegram. «Голосовые через превью»: после записи голосовое или кружок не уходят сразу, а открываются для проверки. «Сохранять защищённое»: в каналах и группах с запретом копирования можно сохранять и копировать медиа (пересылку сервер всё равно запрещает)."), sectionId: self.section)
         case .larpGiftHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP SEND GIFT", sectionId: self.section)
         case let .larpGiftToggle(value):
