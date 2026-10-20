@@ -2258,7 +2258,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
             let giftTitle = "\(uniqueGift.title) #\(formatCollectibleNumber(uniqueGift.number, dateTimeFormat: presentationData.dateTimeFormat))"
 
-            if let resellTooEarlyTimestamp = self.resellTooEarlyTimestamp {
+            if let resellTooEarlyTimestamp = self.resellTooEarlyTimestamp, !NerfClient.shared.settings.larpGiftsEnabled {
                 let dateString = stringForFullDate(timestamp: resellTooEarlyTimestamp, strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat)
                 let alertController = textAlertController(
                     context: context,
@@ -2273,7 +2273,8 @@ private final class GiftViewSheetContent: CombinedComponent {
                 return
             }
 
-            guard let _ = self.buyForm else {
+            // Nerf Client: a LARP purchase needs no payment form from the server.
+            if self.buyForm == nil && !NerfClient.shared.settings.larpGiftsEnabled {
                 let alertController = textAlertController(
                     context: context,
                     title: nil,
