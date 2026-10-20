@@ -562,8 +562,16 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
         try! PasscodeEnvironment.shared.configure(PasscodeConfiguration(appGroupIdentifier: appGroupName, processRole: .mainApp, biometricKeychainService: walletBiometricKeychainService), privateAccessGroup: {
             BuildConfig.keychainAccessGroup(baseAppBundleId: baseAppBundleId)
         })
-        let maybeAppGroupUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)
-        
+        // Nerf Client: a sideloaded (re-signed) build has no app group, so fall back to a folder in
+        // the app's own Documents. Such a build has no iCloud entitlement either, and CloudKit would crash.
+        var maybeAppGroupUrl = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroupName)
+        let isSideloaded = maybeAppGroupUrl == nil
+        if isSideloaded, let documentsUrl = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last {
+            let fallbackUrl = documentsUrl.appendingPathComponent("AppGroup")
+            let _ = try? FileManager.default.createDirectory(at: fallbackUrl, withIntermediateDirectories: true, attributes: nil)
+            maybeAppGroupUrl = fallbackUrl
+        }
+
         let buildConfig = BuildConfig(baseAppBundleId: baseAppBundleId)
         self.buildConfig = buildConfig
         let signatureDict = BuildConfigExtra.signatureDict()
@@ -678,7 +686,7 @@ private func extractAccountManagerState(records: AccountRecordsView<TelegramAcco
             encryptionProvider: OpenSSLEncryptionProvider(),
             deviceModelName: nil,
             useBetaFeatures: !buildConfig.isAppStoreBuild,
-            isICloudEnabled: buildConfig.isICloudEnabled,
+            isICloudEnabled: buildConfig.isICloudEnabled && !isSideloaded,
             // Only the main app passes a factory: extensions stay on MtProtoKit. Whether the Rust
             // engine runs is decided per account by resolveNetworkEngine (Debug Settings switch,
             // mtproto_engine_rust_disabled, the factory's own declines).
