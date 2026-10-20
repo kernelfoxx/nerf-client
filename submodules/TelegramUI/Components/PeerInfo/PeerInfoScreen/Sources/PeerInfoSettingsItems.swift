@@ -15,6 +15,7 @@ import PeerNameColorItem
 import WalletContext
 
 enum SettingsSection: Int, CaseIterable {
+    case nerf
     case edit
     case phone
     case accounts
@@ -265,7 +266,8 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 3, text: presentationData.strings.Settings_Appearance, icon: PresentationResourcesSettings.appearance, action: {
         interaction.openSettings(.appearance)
     }))
-    items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 50, text: "Nerf Client", icon: PresentationResourcesSettings.nerfClient, action: {
+    // Nerf Client: its own block at the very top of Settings.
+    items[.nerf]!.append(PeerInfoScreenDisclosureItem(id: 50, text: "Nerf Client", icon: PresentationResourcesSettings.nerfClient, action: {
         interaction.openSettings(.nerfClient)
     }))
     

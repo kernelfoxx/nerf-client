@@ -502,8 +502,6 @@ public func nerfClientController(context: AccountContext) -> ViewController {
             current.larpUsername = value
             return current
         }
-    }, openGiveGift: {
-        pushControllerImpl?(nerfGiveGiftController(context: context))
     }, openLarpGift: { row in
         guard row.canUpgrade else {
             return
@@ -539,6 +537,8 @@ public func nerfClientController(context: AccountContext) -> ViewController {
             })
         ])
         presentControllerImpl?(alertController)
+    }, openGiveGift: {
+        pushControllerImpl?(nerfGiveGiftController(context: context))
     })
 
     let larpGiftCount = NerfClient.shared.larpGiftsSignal
