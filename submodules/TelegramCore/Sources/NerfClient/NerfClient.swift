@@ -567,7 +567,8 @@ private func nerfStoreMessage(_ message: Message, media: [Media]) -> StoreMessag
 }
 
 /// Picks one attribute, rarer ones less often, as a real upgrade does.
-private func nerfPickAttribute(_ attributes: [StarGift.UniqueGift.Attribute]) -> StarGift.UniqueGift.Attribute? {
+private func nerfPickAttribute(_ attributes: [StarGift.UniqueGift.Attribute], tierBoost: Int = 1) -> StarGift.UniqueGift.Attribute? {
+    let boost = max(1, tierBoost)
     func weight(_ rarity: StarGift.UniqueGift.Attribute.Rarity) -> Int {
         switch rarity {
         case let .permille(value):
@@ -575,11 +576,11 @@ private func nerfPickAttribute(_ attributes: [StarGift.UniqueGift.Attribute]) ->
         case .uncommon:
             return 80
         case .rare:
-            return 30
+            return 30 * boost
         case .epic:
-            return 10
+            return 10 * boost * boost
         case .legendary:
-            return 3
+            return 3 * boost * boost * boost
         }
     }
     let weighted: [(StarGift.UniqueGift.Attribute, Int)] = attributes.compactMap { attribute in
@@ -704,7 +705,9 @@ func _internal_craftLarpGifts(account: Account, localMessageIds: [Int32]) -> Sig
         let craftedModels = models.filter { if case .model(_, _, _, true) = $0 { return true } else { return false } }
         let patterns = preview.attributes.filter { if case .pattern = $0 { return true } else { return false } }
         let backdrops = preview.attributes.filter { if case .backdrop = $0 { return true } else { return false } }
-        guard let model = nerfPickAttribute(craftedModels.isEmpty ? models : craftedModels), let pattern = nerfPickAttribute(patterns), let backdrop = nerfPickAttribute(backdrops) else {
+        // Two gifts craft at the base odds; each extra gift raises the odds of rarer tiers.
+        let tierBoost = inputs.count - 1
+        guard let model = nerfPickAttribute(craftedModels.isEmpty ? models : craftedModels, tierBoost: tierBoost), let pattern = nerfPickAttribute(patterns), let backdrop = nerfPickAttribute(backdrops) else {
             return .single(.unavailable)
         }
         let total = max(1, baseGift.availability.total)

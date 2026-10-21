@@ -1055,7 +1055,24 @@ private func nerfCraftController(context: AccountContext) -> ViewController {
             switch result {
             case let .upgraded(gift):
                 if case let .unique(uniqueGift) = gift {
-                    text = "Скрафчено: \(uniqueGift.title) #\(uniqueGift.number) \(NerfClient.larpMark)"
+                    var tier = ""
+                    for attribute in uniqueGift.attributes {
+                        if case let .model(_, _, rarity, _) = attribute {
+                            switch rarity {
+                            case .legendary:
+                                tier = " · Легендарный"
+                            case .epic:
+                                tier = " · Эпический"
+                            case .rare:
+                                tier = " · Редкий"
+                            case .uncommon:
+                                tier = " · Необычный"
+                            case .permille:
+                                break
+                            }
+                        }
+                    }
+                    text = "Скрафчено: \(uniqueGift.title) #\(uniqueGift.number)\(tier) \(NerfClient.larpMark)"
                 } else {
                     text = "Готово"
                 }
@@ -1080,7 +1097,7 @@ private func nerfCraftController(context: AccountContext) -> ViewController {
         if gifts.count < 2 {
             entries.append(.info("Для крафта нужно минимум 2 улучшенных LARP-гифта в твоём профиле. Выдай гифты себе и улучши их в «Мои LARP-гифты»."))
         } else {
-            entries.append(.info("Выбери 2 или больше гифтов. Они исчезнут, а вместо них появится один новый уникальный гифт с лентой LARP; если у гифта есть крафтовые модели, выпадет одна из них."))
+            entries.append(.info("Выбери 2 или больше гифтов. Они исчезнут, а вместо них появится один новый уникальный гифт с лентой LARP; если у гифта есть крафтовые модели, выпадет одна из них. Чем больше гифтов, тем выше шанс эпической и легендарной модели."))
         }
         let rightButton = ItemListNavigationButton(content: .text("Скрафтить"), style: .bold, enabled: selection.count >= 2, action: {
             craft()
