@@ -27,8 +27,9 @@ private final class NerfClientControllerArguments {
     let updateLarpToggle: (NerfLarpToggle, Bool) -> Void
     let updateLarpNumberSetting: (NerfNumberSetting, String) -> Void
     let updateLarpGram: (String) -> Void
+    let openMode: (NerfClientMode) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, openMode: @escaping (NerfClientMode) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -47,6 +48,7 @@ private final class NerfClientControllerArguments {
         self.updateLarpToggle = updateLarpToggle
         self.updateLarpNumberSetting = updateLarpNumberSetting
         self.updateLarpGram = updateLarpGram
+        self.openMode = openMode
     }
 }
 
@@ -61,6 +63,18 @@ private enum NerfFeature: Int32, CaseIterable {
     case showSeconds
     case saveProtectedContent
     case unlockGramWallet
+    case hideEditedLabel
+    case hideViewCounts
+
+    /// Visual toggles go under "Визуал", the rest under "Функции".
+    var isVisual: Bool {
+        switch self {
+        case .hideStories, .hideAds, .showSeconds, .hideEditedLabel, .hideViewCounts:
+            return true
+        default:
+            return false
+        }
+    }
 
     var title: String {
         switch self {
@@ -84,6 +98,10 @@ private enum NerfFeature: Int32, CaseIterable {
             return "Сохранять защищённое"
         case .unlockGramWallet:
             return "Unlock Gram Wallet"
+        case .hideEditedLabel:
+            return "Скрыть «изменено»"
+        case .hideViewCounts:
+            return "Скрыть просмотры"
         }
     }
 
@@ -109,6 +127,10 @@ private enum NerfFeature: Int32, CaseIterable {
             return \.saveProtectedContent
         case .unlockGramWallet:
             return \.unlockGramWallet
+        case .hideEditedLabel:
+            return \.hideEditedLabel
+        case .hideViewCounts:
+            return \.hideViewCounts
         }
     }
 }
@@ -198,7 +220,16 @@ private struct NerfLarpGiftRow: Equatable {
     let valueCents: Int64?
 }
 
+/// The Nerf Client screen: a root with two entries, LARP and "Визуал и функции".
+public enum NerfClientMode {
+    case root
+    case larp
+    case features
+}
+
 private enum NerfClientSection: Int32 {
+    case root
+    case visual
     case features
     case larpGift
     case larpStars
@@ -212,6 +243,9 @@ private enum NerfClientSection: Int32 {
 }
 
 private enum NerfClientEntry: ItemListNodeEntry {
+    case rootLarp
+    case rootFeatures
+    case visualHeader
     case featuresHeader
     case featureToggle(NerfFeature, Bool)
     case featuresInfo
@@ -253,7 +287,13 @@ private enum NerfClientEntry: ItemListNodeEntry {
 
     var section: ItemListSectionId {
         switch self {
-        case .featuresHeader, .featureToggle, .featuresInfo:
+        case .rootLarp, .rootFeatures:
+            return NerfClientSection.root.rawValue
+        case .visualHeader:
+            return NerfClientSection.visual.rawValue
+        case let .featureToggle(feature, _):
+            return feature.isVisual ? NerfClientSection.visual.rawValue : NerfClientSection.features.rawValue
+        case .featuresHeader, .featuresInfo:
             return NerfClientSection.features.rawValue
         case .larpGiftHeader, .larpGiftToggle, .larpGiftClear, .larpGiftInfo:
             return NerfClientSection.larpGift.rawValue
@@ -296,10 +336,16 @@ private enum NerfClientEntry: ItemListNodeEntry {
 
     var stableId: Int32 {
         switch self {
+        case .rootLarp:
+            return -1000
+        case .rootFeatures:
+            return -999
+        case .visualHeader:
+            return -300
+        case let .featureToggle(feature, _):
+            return (feature.isVisual ? -299 : -99) + feature.rawValue
         case .featuresHeader:
             return -100
-        case let .featureToggle(feature, _):
-            return -99 + feature.rawValue
         case .featuresInfo:
             return -1
         case .larpGiftHeader:
@@ -396,6 +442,16 @@ private enum NerfClientEntry: ItemListNodeEntry {
     func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
         let arguments = arguments as! NerfClientControllerArguments
         switch self {
+        case .rootLarp:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "LARP", label: "гифты, балансы, профиль, канал", sectionId: self.section, style: .blocks, action: {
+                arguments.openMode(.larp)
+            })
+        case .rootFeatures:
+            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "Визуал и функции", label: "", sectionId: self.section, style: .blocks, action: {
+                arguments.openMode(.features)
+            })
+        case .visualHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "ВИЗУАЛ", sectionId: self.section)
         case .featuresHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "ФУНКЦИИ", sectionId: self.section)
         case let .featureToggle(feature, value):
@@ -544,18 +600,43 @@ private func larpTonNano(text: String) -> Int64 {
     return overflow ? Int64.max : product + fraction
 }
 
+private func nerfClientTitle(_ mode: NerfClientMode) -> String {
+    switch mode {
+    case .root:
+        return "Nerf Client"
+    case .larp:
+        return "LARP"
+    case .features:
+        return "Визуал и функции"
+    }
+}
+
 private func nerfNumberText(_ settings: NerfClient.Settings, _ setting: NerfNumberSetting) -> String {
     let value = settings[keyPath: setting.keyPath]
     return value == setting.defaultValue ? "" : "\(value)"
 }
 
-private func nerfClientControllerEntries(settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int, larpGiftRows: [NerfLarpGiftRow]) -> [NerfClientEntry] {
+private func nerfClientControllerEntries(mode: NerfClientMode, settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int, larpGiftRows: [NerfLarpGiftRow]) -> [NerfClientEntry] {
     var entries: [NerfClientEntry] = []
-    entries.append(.featuresHeader)
-    for feature in NerfFeature.allCases {
-        entries.append(.featureToggle(feature, settings[keyPath: feature.keyPath]))
+    switch mode {
+    case .root:
+        entries.append(.rootLarp)
+        entries.append(.rootFeatures)
+        return entries
+    case .features:
+        entries.append(.visualHeader)
+        for feature in NerfFeature.allCases where feature.isVisual {
+            entries.append(.featureToggle(feature, settings[keyPath: feature.keyPath]))
+        }
+        entries.append(.featuresHeader)
+        for feature in NerfFeature.allCases where !feature.isVisual {
+            entries.append(.featureToggle(feature, settings[keyPath: feature.keyPath]))
+        }
+        entries.append(.featuresInfo)
+        return entries
+    case .larp:
+        break
     }
-    entries.append(.featuresInfo)
     entries.append(.larpGiftHeader)
     entries.append(.larpGiftToggle(settings.larpGiftsEnabled))
     entries.append(.larpGiftClear(larpGiftCount))
@@ -618,7 +699,7 @@ private func nerfClientControllerEntries(settings: NerfClient.Settings, inputSta
     return entries
 }
 
-public func nerfClientController(context: AccountContext) -> ViewController {
+public func nerfClientController(context: AccountContext, mode: NerfClientMode = .root) -> ViewController {
     var presentControllerImpl: ((ViewController) -> Void)?
     var pushControllerImpl: ((ViewController) -> Void)?
 
@@ -791,6 +872,8 @@ public func nerfClientController(context: AccountContext) -> ViewController {
             current.larpGramNano = larpTonNano(text: value)
             return current
         }
+    }, openMode: { mode in
+        pushControllerImpl?(nerfClientController(context: context, mode: mode))
     })
 
     let larpGiftCount = NerfClient.shared.larpGiftsSignal
@@ -839,8 +922,8 @@ public func nerfClientController(context: AccountContext) -> ViewController {
     let signal = combineLatest(context.sharedContext.presentationData, NerfClient.shared.settingsSignal, inputState.get(), larpGiftCount, larpGiftRows)
     |> deliverOnMainQueue
     |> map { presentationData, settings, inputState, larpGiftCount, larpGiftRows -> (ItemListControllerState, (ItemListNodeState, Any)) in
-        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text("Nerf Client"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
-        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: nerfClientControllerEntries(settings: settings, inputState: inputState, larpGiftCount: larpGiftCount, larpGiftRows: larpGiftRows), style: .blocks, emptyStateItem: nil, animateChanges: true)
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(nerfClientTitle(mode)), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: nerfClientControllerEntries(mode: mode, settings: settings, inputState: inputState, larpGiftCount: larpGiftCount, larpGiftRows: larpGiftRows), style: .blocks, emptyStateItem: nil, animateChanges: true)
 
         return (controllerState, (listState, arguments))
     }

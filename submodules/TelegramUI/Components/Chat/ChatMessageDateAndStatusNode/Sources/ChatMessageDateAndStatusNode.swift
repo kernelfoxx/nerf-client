@@ -604,7 +604,8 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             }
             
             var updatedDateText = arguments.dateText
-            if arguments.edited {
+            // Nerf Client: Hide "edited" drops the label.
+            if arguments.edited && !NerfClient.shared.settings.hideEditedLabel {
                 if let useEditedTimestamp = arguments.context.getAppConfigValue("message_primary_edited_date") as? Bool, useEditedTimestamp {
                 } else {
                     updatedDateText = "\(arguments.presentationData.strings.Conversation_MessageEditedLabel) \(updatedDateText)"

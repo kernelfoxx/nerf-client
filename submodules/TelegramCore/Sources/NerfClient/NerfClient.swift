@@ -41,6 +41,8 @@ public final class NerfClient {
         public var larpBoostLevel: Int32 = 0
         public var larpWornGiftId: Int64 = 0
         public var unlockGramWallet: Bool = false
+        public var hideEditedLabel: Bool = false
+        public var hideViewCounts: Bool = false
         public var larpGramEnabled: Bool = false
         /// In nanotons.
         public var larpGramNano: Int64 = 0
@@ -103,6 +105,8 @@ public final class NerfClient {
         static let larpBoostLevel = "nerf.larpBoostLevel"
         static let larpWornGiftId = "nerf.larpWornGiftId"
         static let unlockGramWallet = "nerf.unlockGramWallet"
+        static let hideEditedLabel = "nerf.hideEditedLabel"
+        static let hideViewCounts = "nerf.hideViewCounts"
         static let larpGramEnabled = "nerf.larpGramEnabled"
         static let larpGramNano = "nerf.larpGramNano"
         static let larpPremiumMonths = "nerf.larpPremiumMonths"
@@ -148,6 +152,8 @@ public final class NerfClient {
         settingsValue.larpBoostLevel = Int32(clamping: defaults.integer(forKey: Keys.larpBoostLevel))
         settingsValue.larpWornGiftId = Int64(defaults.string(forKey: Keys.larpWornGiftId) ?? "") ?? 0
         settingsValue.unlockGramWallet = defaults.bool(forKey: Keys.unlockGramWallet)
+        settingsValue.hideEditedLabel = defaults.bool(forKey: Keys.hideEditedLabel)
+        settingsValue.hideViewCounts = defaults.bool(forKey: Keys.hideViewCounts)
         settingsValue.larpGramEnabled = defaults.bool(forKey: Keys.larpGramEnabled)
         settingsValue.larpGramNano = (defaults.object(forKey: Keys.larpGramNano) as? NSNumber)?.int64Value ?? 0
         settingsValue.larpPremiumMonths = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumMonths))
@@ -205,6 +211,8 @@ public final class NerfClient {
         self.defaults.set(Int(updated.larpBoostLevel), forKey: Keys.larpBoostLevel)
         self.defaults.set("\(updated.larpWornGiftId)", forKey: Keys.larpWornGiftId)
         self.defaults.set(updated.unlockGramWallet, forKey: Keys.unlockGramWallet)
+        self.defaults.set(updated.hideEditedLabel, forKey: Keys.hideEditedLabel)
+        self.defaults.set(updated.hideViewCounts, forKey: Keys.hideViewCounts)
         self.defaults.set(updated.larpGramEnabled, forKey: Keys.larpGramEnabled)
         self.defaults.set(NSNumber(value: updated.larpGramNano), forKey: Keys.larpGramNano)
         self.defaults.set(Int(updated.larpPremiumMonths), forKey: Keys.larpPremiumMonths)
@@ -321,6 +329,10 @@ public final class NerfClient {
 
     /// A post's view count, multiplied in the account's own channels while LARP Channel is on.
     public static func larpViewCount(_ count: Int, message: Message) -> Int {
+        // Hide View Counts: a zero count is not shown at all.
+        if NerfClient.shared.settings.hideViewCounts {
+            return 0
+        }
         guard NerfClient.shared.isLarpChannel(message.peers[message.id.peerId]) else {
             return count
         }
@@ -470,14 +482,23 @@ func _internal_addLarpGift(account: Account, peerId: EnginePeer.Id, gift: StarGi
         let timestamp = Int32(Date().timeIntervalSince1970)
         let randomId = Int64.random(in: Int64.min ... Int64.max)
 
+        // A market gift bought as a LARP gift belongs to the recipient and is not listed for sale.
+        var purchaseAmount: CurrencyAmount?
+        if case let .unique(uniqueGift) = gift {
+            purchaseAmount = uniqueGift.resellAmounts?.first(where: { $0.currency == .stars }) ?? uniqueGift.resellAmounts?.first
+        }
+        var gift = gift
+        if case let .unique(uniqueGift) = gift {
+            gift = .unique(nerfUniqueGift(uniqueGift, owner: .peerId(peerId), resellAmounts: nil, valueAmount: uniqueGift.valueAmount, craftChancePermille: uniqueGift.craftChancePermille ?? nerfDefaultCraftChancePermille))
+        }
+
         let action: TelegramMediaActionType
         switch gift {
         case let .generic(genericGift):
             action = .starGift(gift: gift, convertStars: genericGift.convertStars, text: text, entities: entities, nameHidden: nameHidden, savedToProfile: false, converted: false, upgraded: false, canUpgrade: peerId == accountPeerId, upgradeStars: nil, isRefunded: false, isPrepaidUpgrade: false, upgradeMessageId: nil, peerId: nil, senderId: nil, savedId: nil, prepaidUpgradeHash: nil, giftMessageId: nil, upgradeSeparate: false, isAuctionAcquired: false, toPeerId: nil, number: nil)
-        case let .unique(uniqueGift):
-            // The resale price makes the service line read "You bought <gift> for N Stars", as for a real market purchase.
-            let resaleAmount = uniqueGift.resellAmounts?.first(where: { $0.currency == .stars }) ?? uniqueGift.resellAmounts?.first
-            action = .starGiftUnique(gift: gift, isUpgrade: false, isTransferred: false, savedToProfile: false, canExportDate: nil, transferStars: nil, isRefunded: false, isPrepaidUpgrade: false, peerId: nil, senderId: accountPeerId, savedId: nil, resaleAmount: isCrafted ? nil : resaleAmount, canTransferDate: nil, canResaleDate: nil, dropOriginalDetailsStars: nil, assigned: false, fromOffer: false, canCraftAt: nil, isCrafted: isCrafted, text: text, entities: entities, nameHidden: nameHidden)
+        case .unique:
+            // The purchase price makes the service line read "You bought <gift> for N Stars", as for a real market purchase.
+            action = .starGiftUnique(gift: gift, isUpgrade: false, isTransferred: false, savedToProfile: false, canExportDate: nil, transferStars: nil, isRefunded: false, isPrepaidUpgrade: false, peerId: nil, senderId: accountPeerId, savedId: nil, resaleAmount: isCrafted ? nil : purchaseAmount, canTransferDate: nil, canResaleDate: nil, dropOriginalDetailsStars: nil, assigned: false, fromOffer: false, canCraftAt: peerId == accountPeerId ? 0 : nil, isCrafted: isCrafted, text: text, entities: entities, nameHidden: nameHidden)
         }
 
         let message = StoreMessage(peerId: peerId, namespace: Namespaces.Message.Local, customStableId: nil, globallyUniqueId: randomId, groupingKey: nil, threadId: nil, timestamp: timestamp, flags: [], tags: [], globalTags: [], localTags: [], forwardInfo: nil, authorId: accountPeerId, text: "", attributes: [], media: [TelegramMediaAction(action: action)])
@@ -519,9 +540,13 @@ func nerfProfileGifts(account: Account, peerId: EnginePeer.Id) -> Signal<[Profil
             return []
         }
         return records.filter { $0.accountPeerId == accountPeerId.toInt64() && $0.peerId == peerId.toInt64() }.map { record in
+            var reference: StarGiftReference?
+            if case let .unique(uniqueGift) = record.gift {
+                reference = .slug(slug: uniqueGift.slug)
+            }
             return ProfileGiftsContext.State.StarGift(
-                gift: record.gift,
-                reference: nil,
+                gift: nerfPresentedLarpGift(record.gift, ownerPeerId: peerId),
+                reference: reference,
                 fromPeer: accountPeer,
                 date: record.date,
                 text: record.text,
@@ -542,7 +567,7 @@ func nerfProfileGifts(account: Account, peerId: EnginePeer.Id) -> Signal<[Profil
                 dropOriginalDetailsStars: nil,
                 number: nil,
                 isRefunded: false,
-                canCraftAt: nil
+                canCraftAt: record.peerId == accountPeerId.toInt64() && !nerfIsGeneric(record.gift) ? 0 : nil
             )
         }
     }
@@ -661,7 +686,7 @@ func _internal_upgradeLarpGift(account: Account, peerId: EnginePeer.Id, localMes
         return account.postbox.transaction { transaction -> LarpGiftUpgradeResult in
             let messageId = MessageId(peerId: peerId, namespace: Namespaces.Message.Local, id: localMessageId)
             if let message = transaction.getMessage(messageId) {
-                let action = TelegramMediaAction(action: .starGiftUnique(gift: gift, isUpgrade: true, isTransferred: false, savedToProfile: false, canExportDate: nil, transferStars: nil, isRefunded: false, isPrepaidUpgrade: false, peerId: nil, senderId: account.peerId, savedId: nil, resaleAmount: nil, canTransferDate: nil, canResaleDate: nil, dropOriginalDetailsStars: nil, assigned: false, fromOffer: false, canCraftAt: nil, isCrafted: false, text: record.text, entities: nil, nameHidden: false))
+                let action = TelegramMediaAction(action: .starGiftUnique(gift: gift, isUpgrade: true, isTransferred: false, savedToProfile: false, canExportDate: nil, transferStars: nil, isRefunded: false, isPrepaidUpgrade: false, peerId: nil, senderId: account.peerId, savedId: nil, resaleAmount: nil, canTransferDate: nil, canResaleDate: nil, dropOriginalDetailsStars: nil, assigned: false, fromOffer: false, canCraftAt: peerId == account.peerId ? 0 : nil, isCrafted: false, text: record.text, entities: nil, nameHidden: false))
                 transaction.updateMessage(messageId, update: { _ in
                     return .update(nerfStoreMessage(message, media: [action]))
                 })
@@ -762,6 +787,13 @@ private func nerfIsGeneric(_ gift: StarGift) -> Bool {
 
 
 private func nerfUniqueGift(_ gift: StarGift.UniqueGift, resellAmounts: [CurrencyAmount]?, valueAmount: Int64?) -> StarGift.UniqueGift {
+    return nerfUniqueGift(gift, owner: gift.owner, resellAmounts: resellAmounts, valueAmount: valueAmount, craftChancePermille: gift.craftChancePermille)
+}
+
+/// Each LARP gift adds this to the odds of a successful craft, as real gifts do.
+let nerfDefaultCraftChancePermille: Int32 = 250
+
+func nerfUniqueGift(_ gift: StarGift.UniqueGift, owner: StarGift.UniqueGift.Owner?, resellAmounts: [CurrencyAmount]?, valueAmount: Int64?, craftChancePermille: Int32?) -> StarGift.UniqueGift {
     return StarGift.UniqueGift(
         id: gift.id,
         giftId: gift.giftId,
@@ -776,15 +808,39 @@ private func nerfUniqueGift(_ gift: StarGift.UniqueGift, resellAmounts: [Currenc
         resellForTonOnly: gift.resellForTonOnly,
         releasedBy: gift.releasedBy,
         valueAmount: valueAmount,
-        valueCurrency: valueAmount == nil ? nil : "USD",
+        valueCurrency: valueAmount == nil ? nil : (gift.valueCurrency ?? "USD"),
         valueUsdAmount: valueAmount,
         flags: gift.flags,
         themePeerId: gift.themePeerId,
         peerColor: gift.peerColor,
         hostPeerId: gift.hostPeerId,
         minOfferStars: gift.minOfferStars,
-        craftChancePermille: gift.craftChancePermille
+        craftChancePermille: craftChancePermille
     )
+}
+
+/// How a unique LARP gift is shown: owned by the peer it was given to, craftable when that is
+/// the account itself.
+func nerfPresentedLarpGift(_ gift: StarGift, ownerPeerId: EnginePeer.Id) -> StarGift {
+    guard case let .unique(uniqueGift) = gift else {
+        return gift
+    }
+    return .unique(nerfUniqueGift(uniqueGift, owner: .peerId(ownerPeerId), resellAmounts: uniqueGift.resellAmounts, valueAmount: uniqueGift.valueAmount, craftChancePermille: uniqueGift.craftChancePermille ?? nerfDefaultCraftChancePermille))
+}
+
+public extension NerfClient {
+    /// The unique LARP gift with this slug, as it is shown.
+    func larpUniqueGift(slug: String) -> StarGift.UniqueGift? {
+        guard slug.hasPrefix("larp-") else {
+            return nil
+        }
+        for record in self.larpGifts {
+            if case let .unique(uniqueGift) = record.gift, uniqueGift.slug == slug, case let .unique(presented) = nerfPresentedLarpGift(record.gift, ownerPeerId: EnginePeer.Id(record.peerId)) {
+                return presented
+            }
+        }
+        return nil
+    }
 }
 
 /// Sets the LARP sale price (Stars, nil to unlist) and the LARP value (US cents, nil to clear)
@@ -850,4 +906,110 @@ func nerfLarpValueInfo(slug: String) -> StarGift.UniqueGift.ValueInfo? {
         }
     }
     return nil
+}
+
+
+private func nerfLarpCraftPick(account: Account, base: StarGift.UniqueGift, inputCount: Int) -> Signal<StarGift.UniqueGift?, NoError> {
+    return _internal_starGiftUpgradePreview(account: account, giftId: base.giftId)
+    |> map { preview -> StarGift.UniqueGift? in
+        guard let preview else {
+            return nil
+        }
+        let models = preview.attributes.filter { if case .model = $0 { return true } else { return false } }
+        let craftedModels = models.filter { if case .model(_, _, _, true) = $0 { return true } else { return false } }
+        let patterns = preview.attributes.filter { if case .pattern = $0 { return true } else { return false } }
+        let backdrops = preview.attributes.filter { if case .backdrop = $0 { return true } else { return false } }
+        guard let model = nerfPickAttribute(craftedModels.isEmpty ? models : craftedModels, tierBoost: inputCount - 1), let pattern = nerfPickAttribute(patterns), let backdrop = nerfPickAttribute(backdrops) else {
+            return nil
+        }
+        let total = max(1, base.availability.total)
+        let uniqueId = Int64.random(in: 1 ... Int64.max)
+        return StarGift.UniqueGift(
+            id: uniqueId,
+            giftId: base.giftId,
+            title: base.title,
+            number: Int32.random(in: 1 ... total),
+            slug: "larp-\(uniqueId)",
+            owner: .peerId(account.peerId),
+            attributes: [model, pattern, backdrop],
+            availability: base.availability,
+            giftAddress: nil,
+            resellAmounts: nil,
+            resellForTonOnly: false,
+            releasedBy: base.releasedBy,
+            valueAmount: nil,
+            valueCurrency: nil,
+            valueUsdAmount: nil,
+            flags: [],
+            themePeerId: nil,
+            peerColor: nil,
+            hostPeerId: nil,
+            minOfferStars: nil,
+            craftChancePermille: nerfDefaultCraftChancePermille
+        )
+    }
+}
+
+/// Telegram's craft screen with LARP gifts: the odds are the sum of the gifts' craft chances, as
+/// for real gifts. Success replaces them with a new unique LARP gift; failure burns them.
+func _internal_craftLarpGiftsWithOdds(account: Account, slugs: [String]) -> Signal<ProfileGiftsContext.State.StarGift, CraftStarGiftError> {
+    let accountPeerId = account.peerId
+    let inputs = NerfClient.shared.larpGifts.filter { record in
+        guard record.accountPeerId == accountPeerId.toInt64(), record.peerId == accountPeerId.toInt64(), case let .unique(uniqueGift) = record.gift else {
+            return false
+        }
+        return slugs.contains(uniqueGift.slug)
+    }
+    guard inputs.count >= 2, inputs.count == slugs.count, let base = inputs.randomElement(), case let .unique(baseGift) = base.gift else {
+        return .fail(.unavailable)
+    }
+    let chance = inputs.reduce(0, { total, record -> Int in
+        if case let .unique(uniqueGift) = record.gift {
+            return total + Int(uniqueGift.craftChancePermille ?? nerfDefaultCraftChancePermille)
+        }
+        return total
+    })
+    let succeeded = Int.random(in: 0 ..< 1000) < min(1000, chance)
+
+    let inputIds = Set(inputs.map { $0.localMessageId })
+    let removeInputs = account.postbox.transaction { transaction -> Void in
+        transaction.deleteMessages(inputIds.map { MessageId(peerId: accountPeerId, namespace: Namespaces.Message.Local, id: $0) }, forEachMedia: nil)
+        NerfClient.shared.updateLarpGifts { current in
+            return current.filter { !($0.accountPeerId == accountPeerId.toInt64() && $0.peerId == accountPeerId.toInt64() && inputIds.contains($0.localMessageId)) }
+        }
+    }
+
+    if !succeeded {
+        return removeInputs
+        |> castError(CraftStarGiftError.self)
+        |> mapToSignal { _ -> Signal<ProfileGiftsContext.State.StarGift, CraftStarGiftError> in
+            return .fail(.craftFailed)
+        }
+    }
+    return nerfLarpCraftPick(account: account, base: baseGift, inputCount: inputs.count)
+    |> castError(CraftStarGiftError.self)
+    |> mapToSignal { crafted -> Signal<ProfileGiftsContext.State.StarGift, CraftStarGiftError> in
+        guard let crafted else {
+            return .fail(.unavailable)
+        }
+        return removeInputs
+        |> mapToSignal { _ -> Signal<EngineMessage.Id?, NoError> in
+            return _internal_addLarpGift(account: account, peerId: accountPeerId, gift: .unique(crafted), text: nil, entities: nil, nameHidden: false, isCrafted: true)
+        }
+        |> castError(CraftStarGiftError.self)
+        |> map { _ -> ProfileGiftsContext.State.StarGift in
+            return ProfileGiftsContext.State.StarGift(gift: .unique(crafted), reference: .slug(slug: crafted.slug), fromPeer: nil, date: Int32(Date().timeIntervalSince1970), text: nil, entities: nil, nameHidden: false, savedToProfile: true, pinnedToTop: false, convertStars: nil, canUpgrade: false, canExportDate: nil, upgradeStars: nil, transferStars: nil, canTransferDate: nil, canResaleDate: nil, collectionIds: nil, prepaidUpgradeHash: nil, upgradeSeparate: false, dropOriginalDetailsStars: nil, number: nil, isRefunded: false, canCraftAt: 0)
+        }
+    }
+}
+
+/// The account's unique LARP gifts that can go into a craft of this gift kind.
+func nerfLarpCraftCandidates(account: Account, giftId: Int64) -> [ProfileGiftsContext.State.StarGift] {
+    let accountPeerId = account.peerId
+    return NerfClient.shared.larpGifts.compactMap { record -> ProfileGiftsContext.State.StarGift? in
+        guard record.accountPeerId == accountPeerId.toInt64(), record.peerId == accountPeerId.toInt64(), case let .unique(uniqueGift) = record.gift, uniqueGift.giftId == giftId else {
+            return nil
+        }
+        return ProfileGiftsContext.State.StarGift(gift: nerfPresentedLarpGift(record.gift, ownerPeerId: accountPeerId), reference: .slug(slug: uniqueGift.slug), fromPeer: nil, date: record.date, text: record.text, entities: nil, nameHidden: false, savedToProfile: true, pinnedToTop: false, convertStars: nil, canUpgrade: false, canExportDate: nil, upgradeStars: nil, transferStars: nil, canTransferDate: nil, canResaleDate: nil, collectionIds: nil, prepaidUpgradeHash: nil, upgradeSeparate: false, dropOriginalDetailsStars: nil, number: nil, isRefunded: false, canCraftAt: 0)
+    }
 }

@@ -3320,6 +3320,19 @@ private final class CraftGiftsContextImpl {
     }
 
     func craft(references: [StarGiftReference]) -> Signal<ProfileGiftsContext.State.StarGift, CraftStarGiftError> {
+        // Nerf Client: LARP gifts craft locally, with odds.
+        let larpSlugs = references.compactMap { reference -> String? in
+            if case let .slug(slug) = reference, slug.hasPrefix("larp-") {
+                return slug
+            }
+            return nil
+        }
+        if !larpSlugs.isEmpty {
+            if larpSlugs.count != references.count {
+                return .fail(.unavailable)
+            }
+            return _internal_craftLarpGiftsWithOdds(account: self.account, slugs: larpSlugs)
+        }
         return _internal_craftStarGift(account: self.account, references: references)
     }
 
@@ -3381,7 +3394,8 @@ private final class CraftGiftsContextImpl {
                 return
             }
             if initialNextOffset == nil {
-                self.gifts = gifts
+                // Nerf Client: the account's LARP gifts of this kind can be crafted too.
+                self.gifts = nerfLarpCraftCandidates(account: self.account, giftId: giftId) + gifts
             } else {
                 self.gifts.append(contentsOf: gifts)
             }
@@ -3684,6 +3698,13 @@ public enum GetUniqueStarGiftError {
 }
 
 func _internal_getUniqueStarGift(account: Account, slug: String) -> Signal<StarGift.UniqueGift, GetUniqueStarGiftError> {
+    // Nerf Client: LARP gifts exist only on this device.
+    if slug.hasPrefix("larp-") {
+        if let gift = NerfClient.shared.larpUniqueGift(slug: slug) {
+            return .single(gift)
+        }
+        return .fail(.invalidSlug)
+    }
     return account.network.request(Api.functions.payments.getUniqueStarGift(slug: slug))
     |> mapError { error -> GetUniqueStarGiftError in
         if error.errorDescription == "STARGIFT_ALREADY_BURNED" {
