@@ -237,7 +237,9 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
             let textText = NSMutableAttributedString()
             switch component.initialData.subject {
             case let .username(username):
-                let rawTitleString = environment.strings.CollectibleItemInfo_UsernameTitle("@\(username.username)")
+                // Nerf Client: the account's LARP username always carries the LARP mark.
+                let larpMark = NerfClient.shared.larpUsername?.lowercased() == username.username.lowercased() ? " \(NerfClient.larpMark)" : ""
+                let rawTitleString = environment.strings.CollectibleItemInfo_UsernameTitle("@\(username.username)\(larpMark)")
                 titleText.append(NSAttributedString(string: rawTitleString.string, font: Font.semibold(16.0), textColor: environment.theme.list.itemPrimaryTextColor))
                 for range in rawTitleString.ranges {
                     titleText.addAttributes([

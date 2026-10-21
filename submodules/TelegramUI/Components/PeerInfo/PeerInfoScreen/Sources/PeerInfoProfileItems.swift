@@ -201,7 +201,10 @@ func infoItems(
         }
         if user.id == context.account.peerId, let larpUsername = NerfClient.shared.larpUsername {
             // Nerf Client: LARP username in place of the real one, always with the LARP mark.
-            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername) \(NerfClient.larpMark)", textColor: .accent, action: nil, requestLayout: { animated in
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername) \(NerfClient.larpMark)", textColor: .accent, action: { _, progress in
+                // A collectible username opens its Fragment page; any other one, its share sheet.
+                interaction.openUsername(larpUsername, false, progress)
+            }, requestLayout: { animated in
                 interaction.requestLayout(animated)
             }))
         } else if let mainUsername = user.addressName {

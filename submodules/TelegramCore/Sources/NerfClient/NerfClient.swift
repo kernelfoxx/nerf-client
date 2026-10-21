@@ -43,6 +43,11 @@ public final class NerfClient {
         public var unlockGramWallet: Bool = false
         public var hideEditedLabel: Bool = false
         public var hideViewCounts: Bool = false
+        /// 0 is off; 1...7 are Telegram's preset colors.
+        public var larpNameColor: Int32 = 0
+        public var larpProfileColor: Int32 = 0
+        public var squareAvatars: Bool = false
+        public var unlockChatTranslation: Bool = false
         public var larpGramEnabled: Bool = false
         /// In nanotons.
         public var larpGramNano: Int64 = 0
@@ -107,6 +112,10 @@ public final class NerfClient {
         static let unlockGramWallet = "nerf.unlockGramWallet"
         static let hideEditedLabel = "nerf.hideEditedLabel"
         static let hideViewCounts = "nerf.hideViewCounts"
+        static let larpNameColor = "nerf.larpNameColor"
+        static let larpProfileColor = "nerf.larpProfileColor"
+        static let squareAvatars = "nerf.squareAvatars"
+        static let unlockChatTranslation = "nerf.unlockChatTranslation"
         static let larpGramEnabled = "nerf.larpGramEnabled"
         static let larpGramNano = "nerf.larpGramNano"
         static let larpPremiumMonths = "nerf.larpPremiumMonths"
@@ -154,6 +163,10 @@ public final class NerfClient {
         settingsValue.unlockGramWallet = defaults.bool(forKey: Keys.unlockGramWallet)
         settingsValue.hideEditedLabel = defaults.bool(forKey: Keys.hideEditedLabel)
         settingsValue.hideViewCounts = defaults.bool(forKey: Keys.hideViewCounts)
+        settingsValue.larpNameColor = Int32(clamping: defaults.integer(forKey: Keys.larpNameColor))
+        settingsValue.larpProfileColor = Int32(clamping: defaults.integer(forKey: Keys.larpProfileColor))
+        settingsValue.squareAvatars = defaults.bool(forKey: Keys.squareAvatars)
+        settingsValue.unlockChatTranslation = defaults.bool(forKey: Keys.unlockChatTranslation)
         settingsValue.larpGramEnabled = defaults.bool(forKey: Keys.larpGramEnabled)
         settingsValue.larpGramNano = (defaults.object(forKey: Keys.larpGramNano) as? NSNumber)?.int64Value ?? 0
         settingsValue.larpPremiumMonths = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumMonths))
@@ -213,6 +226,10 @@ public final class NerfClient {
         self.defaults.set(updated.unlockGramWallet, forKey: Keys.unlockGramWallet)
         self.defaults.set(updated.hideEditedLabel, forKey: Keys.hideEditedLabel)
         self.defaults.set(updated.hideViewCounts, forKey: Keys.hideViewCounts)
+        self.defaults.set(Int(updated.larpNameColor), forKey: Keys.larpNameColor)
+        self.defaults.set(Int(updated.larpProfileColor), forKey: Keys.larpProfileColor)
+        self.defaults.set(updated.squareAvatars, forKey: Keys.squareAvatars)
+        self.defaults.set(updated.unlockChatTranslation, forKey: Keys.unlockChatTranslation)
         self.defaults.set(updated.larpGramEnabled, forKey: Keys.larpGramEnabled)
         self.defaults.set(NSNumber(value: updated.larpGramNano), forKey: Keys.larpGramNano)
         self.defaults.set(Int(updated.larpPremiumMonths), forKey: Keys.larpPremiumMonths)
@@ -236,6 +253,26 @@ public final class NerfClient {
         }
         let (until, overflow) = settings.larpPremiumSince.addingReportingOverflow(settings.larpPremiumMonths.multipliedReportingOverflow(by: 30 * 24 * 60 * 60).partialValue)
         return overflow ? Int32.max : until
+    }
+
+    /// The account as its own profile header shows it: with the worn LARP gift (which also gives
+    /// the gift's backdrop and sparkles) and the LARP name and profile colors.
+    public func larpPresentedAccountPeer(_ peer: EnginePeer?, accountPeerId: EnginePeer.Id) -> EnginePeer? {
+        guard case let .user(user) = peer, user.id == accountPeerId, !self.isStreamerMode else {
+            return peer
+        }
+        var updated = user
+        if let status = self.larpWornEmojiStatus {
+            updated = updated.withUpdatedEmojiStatus(status)
+        }
+        let settings = self.settings
+        if settings.larpNameColor > 0 {
+            updated = updated.withUpdatedNameColor(.preset(PeerNameColor(rawValue: settings.larpNameColor - 1)))
+        }
+        if settings.larpProfileColor > 0 {
+            updated = updated.withUpdatedProfileColor(PeerNameColor(rawValue: settings.larpProfileColor - 1))
+        }
+        return .user(updated)
     }
 
     public var isStreamerMode: Bool {
@@ -1012,4 +1049,35 @@ func nerfLarpCraftCandidates(account: Account, giftId: Int64) -> [ProfileGiftsCo
         }
         return ProfileGiftsContext.State.StarGift(gift: nerfPresentedLarpGift(record.gift, ownerPeerId: accountPeerId), reference: .slug(slug: uniqueGift.slug), fromPeer: nil, date: record.date, text: record.text, entities: nil, nameHidden: false, savedToProfile: true, pinnedToTop: false, convertStars: nil, canUpgrade: false, canExportDate: nil, upgradeStars: nil, transferStars: nil, canTransferDate: nil, canResaleDate: nil, collectionIds: nil, prepaidUpgradeHash: nil, upgradeSeparate: false, dropOriginalDetailsStars: nil, number: nil, isRefunded: false, canCraftAt: 0)
     }
+}
+
+
+/// Gives the account a unique LARP gift built from the chosen real upgrade variants and number.
+func _internal_addCustomLarpUniqueGift(account: Account, gift: StarGift.Gift, model: StarGift.UniqueGift.Attribute, pattern: StarGift.UniqueGift.Attribute, backdrop: StarGift.UniqueGift.Attribute, number: Int32) -> Signal<EngineMessage.Id?, NoError> {
+    let total = max(1, gift.availability?.total ?? 100_000)
+    let uniqueId = Int64.random(in: 1 ... Int64.max)
+    let uniqueGift = StarGift.UniqueGift(
+        id: uniqueId,
+        giftId: gift.id,
+        title: gift.title ?? "Gift",
+        number: max(1, number),
+        slug: "larp-\(uniqueId)",
+        owner: .peerId(account.peerId),
+        attributes: [model, pattern, backdrop],
+        availability: StarGift.UniqueGift.Availability(issued: total, total: total),
+        giftAddress: nil,
+        resellAmounts: nil,
+        resellForTonOnly: false,
+        releasedBy: gift.releasedBy,
+        valueAmount: nil,
+        valueCurrency: nil,
+        valueUsdAmount: nil,
+        flags: [],
+        themePeerId: nil,
+        peerColor: nil,
+        hostPeerId: nil,
+        minOfferStars: nil,
+        craftChancePermille: nerfDefaultCraftChancePermille
+    )
+    return _internal_addLarpGift(account: account, peerId: account.peerId, gift: .unique(uniqueGift), text: nil, entities: nil, nameHidden: false)
 }

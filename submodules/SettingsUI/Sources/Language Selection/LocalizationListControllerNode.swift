@@ -477,7 +477,8 @@ final class LocalizationListControllerNode: ViewControllerTracingNode {
                 return
             }
             
-            let isPremium = peer?.isPremium ?? false
+            // Nerf Client: Unlock Chat Translation allows translating entire chats without Premium.
+            let isPremium = (peer?.isPremium ?? false) || NerfClient.shared.settings.unlockChatTranslation
                         
             var entries: [LanguageListEntry] = []
             var activeLanguageCode: String?

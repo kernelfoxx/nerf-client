@@ -26,6 +26,10 @@ public extension TelegramEngine {
             return _internal_updateLarpUniqueGift(account: self.account, peerId: peerId, localMessageId: localMessageId, salePriceStars: salePriceStars, valueCents: valueCents)
         }
 
+        public func addCustomLarpUniqueGift(gift: StarGift.Gift, model: StarGift.UniqueGift.Attribute, pattern: StarGift.UniqueGift.Attribute, backdrop: StarGift.UniqueGift.Attribute, number: Int32) -> Signal<EngineMessage.Id?, NoError> {
+            return _internal_addCustomLarpUniqueGift(account: self.account, gift: gift, model: model, pattern: pattern, backdrop: backdrop, number: number)
+        }
+
         public func clearLarpGifts() -> Signal<Void, NoError> {
             return _internal_clearLarpGifts(account: self.account)
         }

@@ -65,11 +65,13 @@ private enum NerfFeature: Int32, CaseIterable {
     case unlockGramWallet
     case hideEditedLabel
     case hideViewCounts
+    case squareAvatars
+    case unlockChatTranslation
 
     /// Visual toggles go under "Визуал", the rest under "Функции".
     var isVisual: Bool {
         switch self {
-        case .hideStories, .hideAds, .showSeconds, .hideEditedLabel, .hideViewCounts:
+        case .hideStories, .hideAds, .showSeconds, .hideEditedLabel, .hideViewCounts, .squareAvatars:
             return true
         default:
             return false
@@ -102,6 +104,10 @@ private enum NerfFeature: Int32, CaseIterable {
             return "Скрыть «изменено»"
         case .hideViewCounts:
             return "Скрыть просмотры"
+        case .squareAvatars:
+            return "Квадратные аватарки"
+        case .unlockChatTranslation:
+            return "Перевод чатов без Premium"
         }
     }
 
@@ -131,6 +137,10 @@ private enum NerfFeature: Int32, CaseIterable {
             return \.hideEditedLabel
         case .hideViewCounts:
             return \.hideViewCounts
+        case .squareAvatars:
+            return \.squareAvatars
+        case .unlockChatTranslation:
+            return \.unlockChatTranslation
         }
     }
 }
@@ -169,6 +179,8 @@ private enum NerfNumberSetting: Int32 {
     case viewsMultiplier
     case boostLevel
     case premiumMonths
+    case nameColor
+    case profileColor
 
     var placeholder: String {
         switch self {
@@ -182,6 +194,10 @@ private enum NerfNumberSetting: Int32 {
             return "Уровень бустов"
         case .premiumMonths:
             return "Месяцев Premium"
+        case .nameColor:
+            return "Цвет имени 1–7 (0 — свой)"
+        case .profileColor:
+            return "Цвет профиля 1–7 (0 — свой)"
         }
     }
 
@@ -197,6 +213,10 @@ private enum NerfNumberSetting: Int32 {
             return \.larpBoostLevel
         case .premiumMonths:
             return \.larpPremiumMonths
+        case .nameColor:
+            return \.larpNameColor
+        case .profileColor:
+            return \.larpProfileColor
         }
     }
 
@@ -322,7 +342,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
             switch setting {
             case .ratingLevel:
                 return NerfClientSection.larpRating.rawValue
-            case .premiumMonths:
+            case .premiumMonths, .nameColor, .profileColor:
                 return NerfClientSection.larpProfile.rawValue
             default:
                 return NerfClientSection.larpChannel.rawValue
@@ -389,7 +409,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
         case .larpUsernameInput:
             return 20
         case .larpProfileInfo:
-            return 21
+            return 24
         case .larpRatingHeader:
             return 30
         case let .larpToggle(toggle, _):
@@ -407,6 +427,10 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 return 32
             case .premiumMonths:
                 return 18
+            case .nameColor:
+                return 22
+            case .profileColor:
+                return 23
             default:
                 return 42 + setting.rawValue
             }
@@ -668,6 +692,8 @@ private func nerfClientControllerEntries(mode: NerfClientMode, settings: NerfCli
     if settings.larpUsernameEnabled {
         entries.append(.larpUsernameInput(settings.larpUsername))
     }
+    entries.append(.larpNumber(.nameColor, nerfNumberText(settings, .nameColor)))
+    entries.append(.larpNumber(.profileColor, nerfNumberText(settings, .profileColor)))
     entries.append(.larpProfileInfo)
     entries.append(.larpRatingHeader)
     entries.append(.larpToggle(.rating, settings.larpRatingEnabled))
@@ -852,7 +878,10 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
         }
     }, updateLarpNumberSetting: { setting, text in
         let digits = text.filter { $0.isNumber }
-        let value = digits.isEmpty ? setting.defaultValue : (Int32(digits) ?? Int32.max)
+        var value = digits.isEmpty ? setting.defaultValue : (Int32(digits) ?? Int32.max)
+        if setting == .nameColor || setting == .profileColor {
+            value = min(7, value)
+        }
         NerfClient.shared.updateSettings { current in
             var current = current
             current[keyPath: setting.keyPath] = max(setting.defaultValue, value)
@@ -992,28 +1021,19 @@ private enum NerfGiveGiftEntry: ItemListNodeEntry {
                 arguments.giveGift(gift)
             })
         case .info:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Нажми на гифт, и он сразу появится в твоём профиле с лентой LARP. Цена списывается с LARP Stars, если они включены; иначе нужен настоящий баланс, но он не тратится."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Нажми на гифт: можно выдать его обычным или сразу собрать уникальный — со своей моделью, фоном, узором и номером. Цена списывается с LARP Stars, если они включены; иначе нужен настоящий баланс, но он не тратится."), sectionId: self.section)
         }
     }
 }
 
 private func nerfGiveGiftController(context: AccountContext) -> ViewController {
-    var presentControllerImpl: ((ViewController) -> Void)?
 
     // The gift catalog may not be cached yet if the gift store has never been opened.
     let _ = context.engine.payments.keepStarGiftsUpdated().startStandalone()
 
+    var pushControllerImpl: ((ViewController) -> Void)?
     let arguments = NerfGiveGiftControllerArguments(giveGift: { gift in
-        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-        // The balance here is the LARP one while LARP Stars is on, else the real one; only LARP Stars are spent.
-        guard let balance = context.starsContext?.currentState?.balance, balance >= StarsAmount(value: gift.price, nanos: 0), NerfClient.shared.spendLarpBalance(ton: false, amount: gift.price) else {
-            presentControllerImpl?(textAlertController(context: context, title: nil, text: "Недостаточно звёзд на балансе.", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
-            return
-        }
-        let _ = (context.engine.payments.addLarpGift(peerId: context.account.peerId, gift: .generic(gift), text: nil, entities: nil, nameHidden: false)
-        |> deliverOnMainQueue).startStandalone(next: { _ in
-            presentControllerImpl?(textAlertController(context: context, title: nil, text: "Гифт выдан. Он в твоём профиле и в разделе «Мои LARP-гифты», там его можно улучшить.", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
-        })
+        pushControllerImpl?(nerfGiftConstructorController(context: context, gift: gift))
     })
 
     let gifts: Signal<[StarGift.Gift], NoError> = context.engine.payments.cachedStarGifts()
@@ -1041,8 +1061,8 @@ private func nerfGiveGiftController(context: AccountContext) -> ViewController {
     }
 
     let controller = ItemListController(context: context, state: signal)
-    presentControllerImpl = { [weak controller] c in
-        controller?.present(c, in: .window(.root))
+    pushControllerImpl = { [weak controller] c in
+        controller?.push(c)
     }
     return controller
 }
@@ -1314,6 +1334,281 @@ private func nerfLarpGiftEditController(context: AccountContext, row: NerfLarpGi
     }
 
     let controller = ItemListController(context: context, state: signal)
+    dismissImpl = { [weak controller] in
+        let _ = controller?.navigationController?.popViewController(animated: true)
+    }
+    return controller
+}
+
+
+private enum NerfConstructorSlot: Int32 {
+    case model
+    case backdrop
+    case pattern
+
+    var title: String {
+        switch self {
+        case .model:
+            return "МОДЕЛЬ"
+        case .backdrop:
+            return "ФОН"
+        case .pattern:
+            return "УЗОР"
+        }
+    }
+}
+
+private struct NerfConstructorState: Equatable {
+    var model: Int?
+    var backdrop: Int?
+    var pattern: Int?
+    var number: String
+}
+
+private final class NerfConstructorArguments {
+    let select: (NerfConstructorSlot, Int) -> Void
+    let updateNumber: (String) -> Void
+    let givePlain: () -> Void
+    let giveUnique: () -> Void
+
+    init(select: @escaping (NerfConstructorSlot, Int) -> Void, updateNumber: @escaping (String) -> Void, givePlain: @escaping () -> Void, giveUnique: @escaping () -> Void) {
+        self.select = select
+        self.updateNumber = updateNumber
+        self.givePlain = givePlain
+        self.giveUnique = giveUnique
+    }
+}
+
+private enum NerfConstructorEntry: ItemListNodeEntry {
+    case givePlain(String)
+    case header(NerfConstructorSlot)
+    case option(NerfConstructorSlot, Int, String, Bool)
+    case numberHeader
+    case number(String)
+    case giveUnique(String, Bool)
+    case loading
+
+    var section: ItemListSectionId {
+        switch self {
+        case .givePlain:
+            return 0
+        case let .header(slot):
+            return 1 + slot.rawValue
+        case let .option(slot, _, _, _):
+            return 1 + slot.rawValue
+        case .numberHeader, .number, .giveUnique, .loading:
+            return 10
+        }
+    }
+
+    var stableId: Int32 {
+        switch self {
+        case .givePlain:
+            return 0
+        case let .header(slot):
+            return 100_000 * (slot.rawValue + 1)
+        case let .option(slot, index, _, _):
+            return 100_000 * (slot.rawValue + 1) + 1 + Int32(index)
+        case .numberHeader:
+            return 1_000_000
+        case .number:
+            return 1_000_001
+        case .giveUnique:
+            return 1_000_002
+        case .loading:
+            return 1_000_003
+        }
+    }
+
+    static func <(lhs: NerfConstructorEntry, rhs: NerfConstructorEntry) -> Bool {
+        return lhs.stableId < rhs.stableId
+    }
+
+    func item(presentationData: ItemListPresentationData, arguments: Any) -> ListViewItem {
+        let arguments = arguments as! NerfConstructorArguments
+        switch self {
+        case let .givePlain(title):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: title, kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.givePlain()
+            })
+        case let .header(slot):
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: slot.title, sectionId: self.section)
+        case let .option(slot, index, title, checked):
+            return ItemListCheckboxItem(presentationData: presentationData, systemStyle: .glass, title: title, style: .left, checked: checked, zeroSeparatorInsets: false, sectionId: self.section, action: {
+                arguments.select(slot, index)
+            })
+        case .numberHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "НОМЕР", sectionId: self.section)
+        case let .number(text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: "#"), text: text, placeholder: "случайный", type: .number, sectionId: self.section, textUpdated: { value in
+                arguments.updateNumber(value)
+            }, action: {})
+        case let .giveUnique(title, enabled):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: title, kind: enabled ? .generic : .disabled, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.giveUnique()
+            })
+        case .loading:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Загружаю варианты улучшения…"), sectionId: self.section)
+        }
+    }
+}
+
+private func nerfRarityText(_ rarity: StarGift.UniqueGift.Attribute.Rarity) -> String {
+    switch rarity {
+    case let .permille(value):
+        return String(format: "%.1f%%", Double(value) / 10.0)
+    case .uncommon:
+        return "Необычный"
+    case .rare:
+        return "Редкий"
+    case .epic:
+        return "Эпический"
+    case .legendary:
+        return "Легендарный"
+    }
+}
+
+/// Gives a gift as a regular LARP gift, or builds a unique one from the gift's real upgrade
+/// variants with a chosen model, backdrop, pattern and number.
+private func nerfGiftConstructorController(context: AccountContext, gift: StarGift.Gift) -> ViewController {
+    var presentControllerImpl: ((ViewController) -> Void)?
+    var dismissImpl: (() -> Void)?
+
+    let initialState = NerfConstructorState(model: nil, backdrop: nil, pattern: nil, number: "")
+    let statePromise = ValuePromise(initialState, ignoreRepeated: true)
+    let stateValue = Atomic(value: initialState)
+    let updateState: ((NerfConstructorState) -> NerfConstructorState) -> Void = { f in
+        statePromise.set(stateValue.modify { f($0) })
+    }
+
+    let previewPromise = Promise<StarGiftUpgradePreview?>()
+    previewPromise.set(.single(nil) |> then(context.engine.payments.starGiftUpgradePreview(giftId: gift.id)))
+    let previewValue = Atomic<StarGiftUpgradePreview?>(value: nil)
+
+    func attributes(_ slot: NerfConstructorSlot, _ preview: StarGiftUpgradePreview?) -> [StarGift.UniqueGift.Attribute] {
+        return (preview?.attributes ?? []).filter { attribute in
+            switch (slot, attribute) {
+            case (.model, .model), (.backdrop, .backdrop), (.pattern, .pattern):
+                return true
+            default:
+                return false
+            }
+        }
+    }
+
+    // The balance here is the LARP one while LARP Stars is on, else the real one; only LARP Stars are spent.
+    func spend(_ price: Int64) -> Bool {
+        guard let balance = context.starsContext?.currentState?.balance, balance >= StarsAmount(value: price, nanos: 0) else {
+            return false
+        }
+        return NerfClient.shared.spendLarpBalance(ton: false, amount: price)
+    }
+
+    func done(_ text: String) {
+        let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+        presentControllerImpl?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {
+            dismissImpl?()
+        })]))
+    }
+
+    let arguments = NerfConstructorArguments(select: { slot, index in
+        updateState { current in
+            var current = current
+            switch slot {
+            case .model:
+                current.model = current.model == index ? nil : index
+            case .backdrop:
+                current.backdrop = current.backdrop == index ? nil : index
+            case .pattern:
+                current.pattern = current.pattern == index ? nil : index
+            }
+            return current
+        }
+    }, updateNumber: { value in
+        updateState { current in
+            var current = current
+            current.number = value
+            return current
+        }
+    }, givePlain: {
+        guard spend(gift.price) else {
+            done("Недостаточно звёзд на балансе.")
+            return
+        }
+        let _ = (context.engine.payments.addLarpGift(peerId: context.account.peerId, gift: .generic(gift), text: nil, entities: nil, nameHidden: false)
+        |> deliverOnMainQueue).startStandalone(next: { _ in
+            done("Гифт выдан. Он в твоём профиле, улучшить можно кнопкой «Улучшить» в окне подарка.")
+        })
+    }, giveUnique: {
+        let preview = previewValue.with { $0 }
+        let state = stateValue.with { $0 }
+        let models = attributes(.model, preview)
+        let backdrops = attributes(.backdrop, preview)
+        let patterns = attributes(.pattern, preview)
+        guard let model = state.model.flatMap({ $0 < models.count ? models[$0] : nil }) ?? models.randomElement(), let backdrop = state.backdrop.flatMap({ $0 < backdrops.count ? backdrops[$0] : nil }) ?? backdrops.randomElement(), let pattern = state.pattern.flatMap({ $0 < patterns.count ? patterns[$0] : nil }) ?? patterns.randomElement() else {
+            done("Этот гифт нельзя улучшить.")
+            return
+        }
+        let total = max(1, gift.availability?.total ?? 100_000)
+        let number = Int32(state.number.filter { $0.isNumber }).flatMap { min(max(1, $0), total) } ?? Int32.random(in: 1 ... total)
+        let price = gift.price + (gift.upgradeStars ?? preview?.prices.first?.stars ?? 0)
+        guard spend(price) else {
+            done("Недостаточно звёзд на балансе.")
+            return
+        }
+        let _ = (context.engine.payments.addCustomLarpUniqueGift(gift: gift, model: model, pattern: pattern, backdrop: backdrop, number: number)
+        |> deliverOnMainQueue).startStandalone(next: { _ in
+            done("Готово: \(gift.title ?? "Gift") #\(number) \(NerfClient.larpMark). Он в твоём профиле.")
+        })
+    })
+
+    let signal = combineLatest(context.sharedContext.presentationData, statePromise.get(), previewPromise.get())
+    |> deliverOnMainQueue
+    |> map { presentationData, state, preview -> (ItemListControllerState, (ItemListNodeState, Any)) in
+        let _ = previewValue.swap(preview)
+        var entries: [NerfConstructorEntry] = []
+        entries.append(.givePlain("Выдать обычным · ⭐️ \(gift.price)"))
+        if preview == nil {
+            entries.append(.loading)
+        } else {
+            for slot in [NerfConstructorSlot.model, .backdrop, .pattern] {
+                let selected: Int?
+                switch slot {
+                case .model:
+                    selected = state.model
+                case .backdrop:
+                    selected = state.backdrop
+                case .pattern:
+                    selected = state.pattern
+                }
+                entries.append(.header(slot))
+                for (index, attribute) in attributes(slot, preview).enumerated() {
+                    let title: String
+                    switch attribute {
+                    case let .model(name, _, rarity, _), let .pattern(name, _, rarity):
+                        title = "\(name) · \(nerfRarityText(rarity))"
+                    case let .backdrop(name, _, _, _, _, _, rarity):
+                        title = "\(name) · \(nerfRarityText(rarity))"
+                    case .originalInfo:
+                        continue
+                    }
+                    entries.append(.option(slot, index, title, selected == index))
+                }
+            }
+            entries.append(.numberHeader)
+            entries.append(.number(state.number))
+            let price = gift.price + (gift.upgradeStars ?? preview?.prices.first?.stars ?? 0)
+            entries.append(.giveUnique("Выдать улучшенным · ⭐️ \(price)", !attributes(.model, preview).isEmpty))
+        }
+        let controllerState = ItemListControllerState(presentationData: ItemListPresentationData(presentationData), title: .text(gift.title ?? "Гифт"), leftNavigationButton: nil, rightNavigationButton: nil, backNavigationButton: ItemListBackButton(title: presentationData.strings.Common_Back), animateChanges: false)
+        let listState = ItemListNodeState(presentationData: ItemListPresentationData(presentationData), entries: entries, style: .blocks, emptyStateItem: nil, animateChanges: false)
+        return (controllerState, (listState, arguments))
+    }
+
+    let controller = ItemListController(context: context, state: signal)
+    presentControllerImpl = { [weak controller] c in
+        controller?.present(c, in: .window(.root))
+    }
     dismissImpl = { [weak controller] in
         let _ = controller?.navigationController?.popViewController(animated: true)
     }

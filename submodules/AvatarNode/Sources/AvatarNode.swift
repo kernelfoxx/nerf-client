@@ -42,6 +42,14 @@ public enum AvatarNodeClipStyle {
     case bubble
 }
 
+/// Nerf Client: with Square Avatars on, round avatars become rounded squares.
+func nerfAvatarClipStyle(_ clipStyle: AvatarNodeClipStyle) -> AvatarNodeClipStyle {
+    if case .round = clipStyle, NerfClient.shared.settings.squareAvatars {
+        return .roundedRect
+    }
+    return clipStyle
+}
+
 private class AvatarNodeParameters: NSObject {
     let theme: PresentationTheme?
     let accountPeerId: EnginePeer.Id?
@@ -65,7 +73,7 @@ private class AvatarNodeParameters: NSObject {
         self.icon = icon
         self.explicitColorIndex = explicitColorIndex
         self.hasImage = hasImage
-        self.clipStyle = clipStyle
+        self.clipStyle = nerfAvatarClipStyle(clipStyle)
         self.cutoutRect = cutoutRect
         
         super.init()
@@ -361,7 +369,7 @@ public final class AvatarNode: ASDisplayNode {
                 self.peerId = peerId
                 self.resourceId = resourceId
                 self.displayDimensions = displayDimensions
-                self.clipStyle = clipStyle
+                self.clipStyle = nerfAvatarClipStyle(clipStyle)
             }
         }
         
