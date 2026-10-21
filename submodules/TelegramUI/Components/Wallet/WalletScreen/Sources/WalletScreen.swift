@@ -910,7 +910,7 @@ private final class WalletScreenComponent: Component {
                 action: #selector(self.navigationBalancePressed),
                 for: .touchUpInside
             )
-
+            
             self.transactionsSection.layer.anchorPoint = CGPoint(x: 0.5, y: 0.0)
             self.transferMotionObserver = NotificationCenter.default.addObserver(forName: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
                 self?.updatePendingTransferAnimations()
@@ -1251,7 +1251,7 @@ private final class WalletScreenComponent: Component {
                 for range in balanceTitle.ranges.reversed() where range.index == 0 {
                     title.replaceCharacters(in: range.range, with: amountText)
                 }
-
+                
                 appendItem(id: "earnings", title: title, action: { [weak self] in
                     self?.openEarnings()
                 })
@@ -1481,7 +1481,7 @@ private final class WalletScreenComponent: Component {
             } else {
                 transition.setAlpha(view: section, alpha: 1.0)
             }
-
+                        
             let layoutTransition: ComponentTransition = wasVisible ? transition : .immediate
             layoutTransition.setPosition(
                 view: section,
@@ -1538,7 +1538,7 @@ private final class WalletScreenComponent: Component {
                 self.gramTooltipWalletAddress = walletAddress
                 self.didPresentGramTooltip = false
             }
-
+            
             guard let walletAddress,
                   !self.isGramTooltipPresentationPending,
                   !self.didPresentGramTooltip,
@@ -1573,7 +1573,7 @@ private final class WalletScreenComponent: Component {
                     self.didPresentGramTooltip = true
                     return
                 }
-
+                
                 guard self.cardTransitionFraction == 0.0,
                       !self.scrollView.isDragging,
                       !self.scrollView.isDecelerating,
@@ -3148,7 +3148,7 @@ private final class WalletScreenComponent: Component {
                         return
                     }
                     let hadTwoStepAuthValue = self.hasTwoStepAuth != nil
-
+                    
                     let hasTwoStepAuth: Bool?
                     if let data {
                         hasTwoStepAuth = data.currentPasswordDerivation != nil || data.unconfirmedEmailPattern != nil
@@ -3176,7 +3176,7 @@ private final class WalletScreenComponent: Component {
                 self.existingWaltBalance = nil
                 self.availableEarnings = nil
                 self.loadExistingWaltBalance()
-
+                
                 let earningsContext = subscribedContext.engine.payments.peerStarsRevenueContext(peerId: subscribedContext.account.peerId, ton: true)
                 self.earningsContext = earningsContext
                 self.earningsDisposable.set((earningsContext.state
@@ -3197,7 +3197,7 @@ private final class WalletScreenComponent: Component {
                         }
                     }
                 }))
-
+                
                 self.accountPeerDisposable = (subscribedContext.engine.data.subscribe(
                     TelegramEngine.EngineData.Item.Peer.Peer(id: subscribedContext.account.peerId)
                 )
@@ -3568,7 +3568,7 @@ private final class WalletScreenComponent: Component {
                     })
                 }
                 self.hideEmptyTransactionsFooter(transition: transition)
-
+                
                 transition.setBackgroundColor(view: self, color: environment.theme.list.blocksBackgroundColor)
             } else if self.selectedSection == .collectibles {
                 self.hideSection(self.transactionsSection, transition: transition)
@@ -3766,7 +3766,7 @@ private final class WalletScreenComponent: Component {
                     )
                 }
                 contentHeight = emptyTransactionsFooterOriginY + emptyTransactionsFooterSize.height
-
+                
                 transition.setBackgroundColor(view: self, color: environment.theme.list.plainBackgroundColor)
             }
 
@@ -3871,7 +3871,7 @@ public final class WalletScreen: ViewControllerComponentContainer {
         self.navigationPresentation = .modalInLargeLayout
 
         self.navigationItem.leftBarButtonItem = UIBarButtonItem(customView: UIView())
-
+        
         self.supportedOrientations = ViewControllerSupportedOrientations(regularSize: .all, compactSize: .portrait)
 
         self.scrollToTop = { [weak self] in

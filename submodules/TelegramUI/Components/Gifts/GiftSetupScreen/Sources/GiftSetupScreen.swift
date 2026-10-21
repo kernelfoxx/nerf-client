@@ -474,7 +474,7 @@ private final class GiftSetupScreenComponent: Component {
         
         // Nerf Client: nothing is sent or paid. The gift is added as a local message marked LARP,
         // visible only on this device.
-        private func proceedWithLarpGift(gift: StarGift, text: String, entities: [MessageTextEntity]) {
+        private func proceedWithLarpGift(gift: StarGift, price: Int64, text: String, entities: [MessageTextEntity]) {
             guard let component = self.component else {
                 return
             }
@@ -484,7 +484,14 @@ private final class GiftSetupScreenComponent: Component {
             self.state?.updated()
 
             let _ = (component.context.engine.payments.addLarpGift(peerId: peerId, gift: gift, text: text.isEmpty ? nil : text, entities: entities.isEmpty ? nil : entities, nameHidden: self.hideName)
-            |> deliverOnMainQueue).startStandalone(next: { [weak self] _ in
+            |> deliverOnMainQueue).startStandalone(next: { [weak self] messageId in
+                guard messageId != nil else {
+                    // The gift could not be created: give the LARP Stars back.
+                    NerfClient.shared.refundLarpBalance(ton: false, amount: price)
+                    self?.inProgress = false
+                    self?.state?.updated()
+                    return
+                }
                 guard let self, let controller = self.environment?.controller(), let navigationController = controller.navigationController as? NavigationController else {
                     return
                 }
@@ -524,10 +531,8 @@ private final class GiftSetupScreenComponent: Component {
             let entities = generateChatInputTextEntities(textInputText)
 
             if NerfClient.shared.settings.larpGiftsEnabled, peerId.namespace == Namespaces.Peer.CloudUser, case let .starGift(gift, _) = component.subject {
-                var price = gift.price
-                if self.includeUpgrade, let upgradeStars = gift.upgradeStars {
-                    price += upgradeStars
-                }
+                // A LARP gift is sent as a regular gift; its upgrade is paid when it is upgraded.
+                let price = gift.price
                 // The balance here is the LARP one while LARP Stars is on, else the real one; only LARP Stars are spent.
                 if starsState.balance < StarsAmount(value: price, nanos: 0) || !NerfClient.shared.spendLarpBalance(ton: false, amount: price) {
                     let presentationData = context.sharedContext.currentPresentationData.with { $0 }
@@ -535,7 +540,7 @@ private final class GiftSetupScreenComponent: Component {
                     environment.controller()?.present(alertController, in: .window(.root))
                     return
                 }
-                self.proceedWithLarpGift(gift: .generic(gift), text: textInputText.string, entities: entities)
+                self.proceedWithLarpGift(gift: .generic(gift), price: price, text: textInputText.string, entities: entities)
                 return
             }
 

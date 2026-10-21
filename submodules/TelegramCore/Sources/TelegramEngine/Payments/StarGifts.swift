@@ -3068,13 +3068,13 @@ public final class ProfileGiftsContext {
     public var state: Signal<ProfileGiftsContext.State, NoError> {
         let serverState: Signal<ProfileGiftsContext.State, NoError> = Signal { subscriber in
             let disposable = MetaDisposable()
-
+            
             self.impl.with { impl in
                 disposable.set(impl.state.start(next: { value in
                     subscriber.putNext(value)
                 }))
             }
-
+            
             return disposable
         }
 
@@ -3097,11 +3097,11 @@ public final class ProfileGiftsContext {
         }
         |> deliverOnMainQueue
     }
-
+    
     public let peerId: EnginePeer.Id
     public let collectionId: Int32?
     private let account: Account
-
+    
     public init(
         account: Account,
         peerId: EnginePeer.Id,
@@ -3113,7 +3113,7 @@ public final class ProfileGiftsContext {
         self.peerId = peerId
         self.collectionId = collectionId
         self.account = account
-
+        
         let queue = self.queue
         self.impl = QueueLocalObject(queue: queue, generate: {
             return ProfileGiftsContextImpl(queue: queue, account: account, peerId: peerId, collectionId: collectionId, sorting: sorting, filter: filter, limit: limit)

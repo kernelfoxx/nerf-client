@@ -44,9 +44,14 @@ public func buyStarGiftImpl(
             }
             updateProgress(true)
             let _ = (context.engine.payments.addLarpGift(peerId: recipientPeerId, gift: .unique(uniqueGift), text: message.text, entities: message.entities, nameHidden: message.hideName)
-            |> deliverOnMainQueue).startStandalone(next: { _ in
+            |> deliverOnMainQueue).startStandalone(next: { messageId in
                 beforeCompletion()
                 updateProgress(false)
+                guard messageId != nil else {
+                    // The gift could not be created: give the LARP balance back.
+                    NerfClient.shared.refundLarpBalance(ton: isTon, amount: price.amount.value)
+                    return
+                }
                 completion()
             })
             return

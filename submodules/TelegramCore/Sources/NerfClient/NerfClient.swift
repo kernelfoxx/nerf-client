@@ -236,7 +236,7 @@ public final class NerfClient {
         self.defaults.set(Int(updated.larpPremiumSince), forKey: Keys.larpPremiumSince)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
-        self.settingsPromise.set(updated)
+        self.settingsPromise.set(self.settings)
     }
 
     /// The LARP Gram balance in nanotons, shown in the wallet instead of the real one, or nil when it is off.
@@ -311,6 +311,19 @@ public final class NerfClient {
             return current
         }
         return result
+    }
+
+    /// Gives back what `spendLarpBalance` took, when the LARP gift it paid for could not be created.
+    public func refundLarpBalance(ton: Bool, amount: Int64) {
+        self.updateSettings { current in
+            var current = current
+            if ton, current.larpTonEnabled {
+                current.larpTonNano += amount
+            } else if !ton, current.larpStarsEnabled {
+                current.larpStars += amount
+            }
+            return current
+        }
     }
 
     /// The custom number to show instead of the account's own phone, or nil when the feature is off.
@@ -837,7 +850,7 @@ func nerfUniqueGift(_ gift: StarGift.UniqueGift, owner: StarGift.UniqueGift.Owne
         title: gift.title,
         number: gift.number,
         slug: gift.slug,
-        owner: gift.owner,
+        owner: owner,
         attributes: gift.attributes,
         availability: gift.availability,
         giftAddress: gift.giftAddress,
