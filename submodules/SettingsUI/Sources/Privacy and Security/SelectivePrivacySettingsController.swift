@@ -1727,7 +1727,7 @@ public func selectivePrivacySettingsController(
             if NerfClient.shared.isStreamerMode {
                 phoneNumber = NerfClient.streamerMask
             } else if let larpNumber = NerfClient.shared.larpNumber {
-                phoneNumber = "\(cleanPhoneNumber(larpNumber, removePlus: true)) \(NerfClient.larpMark)"
+                phoneNumber = cleanPhoneNumber(larpNumber, removePlus: true)
             }
         }
         

@@ -1773,9 +1773,9 @@ func peerInfoScreenData(
                 guard let channel = peerView.peers[peerId] as? TelegramChannel else {
                     return PeerInfoStatusData(text: strings.Channel_Status, isActivity: false, key: nil)
                 }
-                // Nerf Client: LARP subscriber count in the account's own channels, with the LARP mark.
+                // Nerf Client: LARP subscriber count in the account's own channels.
                 if let larpSubscribers = NerfClient.shared.larpSubscriberCount(channel) {
-                    return PeerInfoStatusData(text: "\(strings.Conversation_StatusSubscribers(larpSubscribers)) \(NerfClient.larpMark)", isActivity: false, key: nil)
+                    return PeerInfoStatusData(text: "\(strings.Conversation_StatusSubscribers(larpSubscribers))", isActivity: false, key: nil)
                 }
                 if let cachedChannelData = peerView.cachedData as? CachedChannelData, let memberCount = cachedChannelData.participantsSummary.memberCount, memberCount != 0 {
                     return PeerInfoStatusData(text: strings.Conversation_StatusSubscribers(memberCount), isActivity: false, key: nil)

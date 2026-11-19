@@ -606,12 +606,12 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             } else if peer.isScam {
                 credibilityIcon = .scam
             } else if peer.id == self.context.account.peerId, let larpStatus = NerfClient.shared.larpWornEmojiStatus, !NerfClient.shared.isStreamerMode {
-                // Nerf Client: the worn LARP gift; the settings subtitle carries the LARP mark.
+                // Nerf Client: the worn LARP gift on this device.
                 statusIcon = .emojiStatus(larpStatus)
             } else if let emojiStatus = peer.emojiStatus {
                 statusIcon = .emojiStatus(emojiStatus)
             } else if peer.id == self.context.account.peerId && self.isSettings && NerfClient.shared.settings.larpPremium && !NerfClient.shared.isStreamerMode {
-                // Nerf Client: LARP Premium; the settings subtitle carries the LARP mark.
+                // Nerf Client: LARP Premium on this device.
                 credibilityIcon = .premium
             } else if peer.isPremium && !premiumConfiguration.isPremiumDisabled && (peer.id != self.context.account.peerId || self.isSettings || self.isMyProfile) {
                 credibilityIcon = .premium
@@ -1240,18 +1240,18 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 
                 if !NerfClient.shared.isStreamerMode {
                     if let larpUsername = NerfClient.shared.larpUsername {
-                        subtitle = "\(subtitle) • @\(larpUsername) \(NerfClient.larpMark)"
+                        subtitle = "\(subtitle) • @\(larpUsername)"
                     } else if let mainUsername = user.addressName, !mainUsername.isEmpty {
                         subtitle = "\(subtitle) • @\(mainUsername)"
                     }
                     if NerfClient.shared.settings.larpPremium {
-                        subtitle = "\(subtitle) • Premium \(NerfClient.larpMark)"
+                        subtitle = "\(subtitle) • Premium"
                     }
                     if NerfClient.shared.larpWornGift != nil {
-                        subtitle = "\(subtitle) • Статус \(NerfClient.larpMark)"
+                        subtitle = "\(subtitle) • Статус"
                     }
                     if let larpStarRating = NerfClient.shared.larpStarRating {
-                        subtitle = "\(subtitle) • Ур. \(larpStarRating.level) \(NerfClient.larpMark)"
+                        subtitle = "\(subtitle) • Ур. \(larpStarRating.level)"
                     }
                 }
                 subtitleStringText = subtitle
@@ -1393,7 +1393,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
             self.currentStarRating = nil
             self.currentPendingStarRating = nil
         }
-        // Nerf Client: LARP star rating in the account's own profile; the subtitle carries the LARP mark.
+        // Nerf Client: LARP star rating in the account's own profile.
         if peer?.id == self.context.account.peerId, let larpStarRating = NerfClient.shared.larpStarRating, !NerfClient.shared.isStreamerMode {
             self.currentStarRating = larpStarRating
             self.currentPendingStarRating = nil

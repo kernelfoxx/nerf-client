@@ -116,19 +116,7 @@ private func peerDisplayTitles(_ peers: [Peer], strings: PresentationStrings, na
 }
 
 public func universalServiceMessageString(presentationData: (PresentationTheme, TelegramWallpaper)?, strings: PresentationStrings, nameDisplayOrder: PresentationPersonNameOrder, dateTimeFormat: PresentationDateTimeFormat, message: EngineMessage, messageCount: Int? = nil, accountPeerId: EnginePeer.Id, forChatList: Bool, forForumOverview: Bool, forAdditionalServiceMessage: Bool = false) -> NSAttributedString? {
-    let result = universalServiceMessageStringImpl(presentationData: presentationData, strings: strings, nameDisplayOrder: nameDisplayOrder, dateTimeFormat: dateTimeFormat, message: message, messageCount: messageCount, accountPeerId: accountPeerId, forChatList: forChatList, forForumOverview: forForumOverview, forAdditionalServiceMessage: forAdditionalServiceMessage)
-    // Nerf Client: a LARP gift always ends with the LARP mark.
-    if let result, NerfClient.isLarpMessage(message) {
-        let updated = NSMutableAttributedString(attributedString: result)
-        var attributes: [NSAttributedString.Key: Any] = [:]
-        if updated.length > 0 {
-            attributes = updated.attributes(at: updated.length - 1, effectiveRange: nil)
-        }
-        attributes[.font] = titleBoldFont
-        updated.append(NSAttributedString(string: " \(NerfClient.larpMark)", attributes: attributes))
-        return updated
-    }
-    return result
+    return universalServiceMessageStringImpl(presentationData: presentationData, strings: strings, nameDisplayOrder: nameDisplayOrder, dateTimeFormat: dateTimeFormat, message: message, messageCount: messageCount, accountPeerId: accountPeerId, forChatList: forChatList, forForumOverview: forForumOverview, forAdditionalServiceMessage: forAdditionalServiceMessage)
 }
 
 private func universalServiceMessageStringImpl(presentationData: (PresentationTheme, TelegramWallpaper)?, strings: PresentationStrings, nameDisplayOrder: PresentationPersonNameOrder, dateTimeFormat: PresentationDateTimeFormat, message: EngineMessage, messageCount: Int?, accountPeerId: EnginePeer.Id, forChatList: Bool, forForumOverview: Bool, forAdditionalServiceMessage: Bool) -> NSAttributedString? {

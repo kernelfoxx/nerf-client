@@ -18,7 +18,6 @@ final class StarsBalanceComponent: Component {
     let dateTimeFormat: PresentationDateTimeFormat
     let count: StarsAmount
     let currency: CurrencyAmount.Currency
-    let isLarp: Bool
     let isHidden: Bool
     let rate: Double?
     let actionTitle: String
@@ -39,7 +38,6 @@ final class StarsBalanceComponent: Component {
         dateTimeFormat: PresentationDateTimeFormat,
         count: StarsAmount,
         currency: CurrencyAmount.Currency,
-        isLarp: Bool = false,
         isHidden: Bool = false,
         rate: Double?,
         actionTitle: String,
@@ -59,7 +57,6 @@ final class StarsBalanceComponent: Component {
         self.dateTimeFormat = dateTimeFormat
         self.count = count
         self.currency = currency
-        self.isLarp = isLarp
         self.isHidden = isHidden
         self.rate = rate
         self.actionTitle = actionTitle
@@ -101,9 +98,6 @@ final class StarsBalanceComponent: Component {
             return false
         }
         if lhs.secondaryActionCooldownUntilTimestamp != rhs.secondaryActionCooldownUntilTimestamp {
-            return false
-        }
-        if lhs.isLarp != rhs.isLarp {
             return false
         }
         if lhs.isHidden != rhs.isHidden {
@@ -207,13 +201,7 @@ final class StarsBalanceComponent: Component {
                 labelFont = Font.with(size: 48.0, design: .round, weight: .semibold)
             }
             let smallLabelFont = Font.with(size: 32.0, design: .round, weight: .regular)
-            var balanceString = tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: component.theme.list.itemPrimaryTextColor, decimalSeparator: component.dateTimeFormat.decimalSeparator)
-            // Nerf Client: a LARP balance always carries the LARP mark.
-            if component.isLarp && !component.isHidden {
-                let markedBalanceString = NSMutableAttributedString(attributedString: balanceString)
-                markedBalanceString.append(NSAttributedString(string: " " + NerfClient.larpMark, font: smallLabelFont, textColor: component.theme.list.itemPrimaryTextColor))
-                balanceString = markedBalanceString
-            }
+            let balanceString = tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: component.theme.list.itemPrimaryTextColor, decimalSeparator: component.dateTimeFormat.decimalSeparator)
             let titleSize = self.title.update(
                 transition: .immediate,
                 component: AnyComponent(

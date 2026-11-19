@@ -3265,7 +3265,7 @@ private final class WalletScreenComponent: Component {
                     fiatCurrency: fiatCurrency,
                     fiatRate: fiatRate,
                     dateTimeFormat: environment.dateTimeFormat,
-                    name: NerfClient.shared.larpGramBalance != nil ? "\(self.accountName) \(NerfClient.larpMark)" : self.accountName,
+                    name: self.accountName,
                     address: walletAddress ?? "",
                     isVisible: environment.isVisible,
                     cardPressed: { [weak self] in

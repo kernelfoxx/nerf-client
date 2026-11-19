@@ -945,13 +945,6 @@ public class ChatMessageGiftBubbleContentNode: ChatMessageBubbleContentNode {
                     }
                 }
 
-                // Nerf Client: a LARP gift is local-only and always carries the LARP mark.
-                if NerfClient.isLarpMessage(item.message) {
-                    title = "\(title) \(NerfClient.larpMark)"
-                    ribbonTitle = NerfClient.larpMark
-                    customRibbonColors = [UIColor(rgb: 0xd9433a), UIColor(rgb: 0xff645b)]
-                }
-
                 switch months {
                 case 1000:
                     if let item = item.associatedData.tonGiftStickers[0] {

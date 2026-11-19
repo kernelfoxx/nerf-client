@@ -5,12 +5,10 @@ import SwiftSignalKit
 // Nerf Client: local-only "LARP" features.
 //
 // Everything here stays on this device. A LARP gift is never sent to the server: it is a local
-// message in `Namespaces.Message.Local` plus a record shown in the recipient's profile gift list,
-// and both are always rendered with a "LARP" mark (see `NerfClient.larpMark`).
+// message in `Namespaces.Message.Local` plus a record shown in the recipient's profile gift list.
 public final class NerfClient {
     public static let shared = NerfClient()
 
-    public static let larpMark = "LARP"
     /// What Streamer Mode shows in place of hidden values.
     public static let streamerMask = "•••"
 

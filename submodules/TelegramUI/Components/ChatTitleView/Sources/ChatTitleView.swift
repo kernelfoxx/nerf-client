@@ -710,7 +710,7 @@ public final class ChatTitleView: UIView, NavigationBarTitleView {
                                                 }
                                                 // Nerf Client: LARP subscriber count in the account's own channels.
                                                 if let larpSubscribers = NerfClient.shared.larpSubscriberCount(channel) {
-                                                    membersString = "\(strings.Conversation_StatusSubscribers(larpSubscribers)) \(NerfClient.larpMark)"
+                                                    membersString = "\(strings.Conversation_StatusSubscribers(larpSubscribers))"
                                                 }
                                                 let string = NSAttributedString(string: membersString, font: subtitleFont, textColor: titleTheme.rootController.navigationBar.secondaryTextColor)
                                                 state = .info(string, .generic)

@@ -283,10 +283,10 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     let premiumConfiguration = PremiumConfiguration.with(appConfiguration: context.currentAppConfiguration.with { $0 })
     let isPremiumDisabled = premiumConfiguration.isPremiumDisabled
     if !isPremiumDisabled || context.isPremium {
-        // Nerf Client: LARP Premium end date, always with the LARP mark.
+        // Nerf Client: LARP Premium end date.
         var premiumLabel = ""
         if let larpPremiumUntil = NerfClient.shared.larpPremiumUntil, !NerfClient.shared.isStreamerMode {
-            premiumLabel = "до \(stringForMediumDate(timestamp: larpPremiumUntil, strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat)) \(NerfClient.larpMark)"
+            premiumLabel = "до \(stringForMediumDate(timestamp: larpPremiumUntil, strings: presentationData.strings, dateTimeFormat: presentationData.dateTimeFormat))"
         }
         items[.payment]!.append(PeerInfoScreenDisclosureItem(id: 100, label: .text(premiumLabel), text: presentationData.strings.Settings_Premium, icon: PresentationResourcesSettings.premium, action: {
             interaction.openSettings(.premium)
@@ -300,7 +300,7 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
                 let smallLabelFont = Font.regular(floor(presentationData.listsFontSize.itemListBaseFontSize / 17.0 * 13.0))
                 let labelFont = Font.regular(presentationData.listsFontSize.itemListBaseFontSize)
                 let labelColor = presentationData.theme.list.itemSecondaryTextColor
-                balanceText = nerfLarpMarked(tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator), ton: false, font: labelFont, color: labelColor)
+                balanceText = nerfBalanceText(tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator), font: labelFont, color: labelColor)
             } else {
                 balanceText = NSAttributedString()
             }
@@ -317,7 +317,7 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
                 let smallLabelFont = Font.regular(floor(presentationData.listsFontSize.itemListBaseFontSize / 17.0 * 13.0))
                 let labelFont = Font.regular(presentationData.listsFontSize.itemListBaseFontSize)
                 let labelColor = presentationData.theme.list.itemSecondaryTextColor
-                balanceText = nerfLarpMarked(tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator), ton: true, font: labelFont, color: labelColor)
+                balanceText = nerfBalanceText(tonAmountAttributedString(formattedLabel, integralFont: labelFont, fractionalFont: smallLabelFont, color: labelColor, decimalSeparator: presentationData.dateTimeFormat.decimalSeparator), font: labelFont, color: labelColor)
             } else {
                 balanceText = NSAttributedString()
             }
@@ -577,16 +577,10 @@ func settingsEditingItems(data: PeerInfoScreenData?, state: PeerInfoState, conte
     return result
 }
 
-/// Nerf Client: a LARP balance always carries the LARP mark.
-private func nerfLarpMarked(_ text: NSAttributedString, ton: Bool, font: UIFont, color: UIColor) -> NSAttributedString {
-    // Streamer Mode hides the balance altogether.
+/// Nerf Client: Streamer Mode hides the balance altogether.
+private func nerfBalanceText(_ text: NSAttributedString, font: UIFont, color: UIColor) -> NSAttributedString {
     if NerfClient.shared.isStreamerMode {
         return NSAttributedString(string: NerfClient.streamerMask, font: font, textColor: color)
     }
-    guard NerfClient.shared.larpBalance(ton: ton) != nil else {
-        return text
-    }
-    let result = NSMutableAttributedString(attributedString: text)
-    result.append(NSAttributedString(string: " \(NerfClient.larpMark)", font: font, textColor: color))
-    return result
+    return text
 }

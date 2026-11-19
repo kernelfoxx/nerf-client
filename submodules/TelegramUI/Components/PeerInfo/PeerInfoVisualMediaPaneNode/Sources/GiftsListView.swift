@@ -523,14 +523,6 @@ final class GiftsListView: UIView {
                     }
                 }
 
-                // Nerf Client: LARP gifts are local-only and always carry the LARP mark.
-                if NerfClient.shared.isLarpProfileGift(peerId: self.peerId, gift: product.gift, date: product.date) {
-                    ribbonText = NerfClient.larpMark
-                    ribbonFont = .larger
-                    ribbonColor = .red
-                    ribbonOutline = nil
-                }
-
                 let itemReferenceId = product.reference?.stringValue ?? ""
                 
                 var isAdded = false

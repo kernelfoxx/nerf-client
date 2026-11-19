@@ -200,11 +200,7 @@ private final class GiftValueSheetContent: CombinedComponent {
             
             let sideInset: CGFloat = 16.0 + environment.safeInsets.left
             
-            var titleString: String = formatCurrencyAmount(component.valueInfo.value, currency: component.valueInfo.currency)
-            // Nerf Client: a LARP gift's value always carries the LARP mark.
-            if case let .unique(uniqueGift) = component.gift, NerfClient.isLarpUniqueGift(uniqueGift) {
-                titleString += " \(NerfClient.larpMark)"
-            }
+            let titleString: String = formatCurrencyAmount(component.valueInfo.value, currency: component.valueInfo.currency)
             var giftTitle: String = ""
             var giftCollectionTitle: String = ""
             var animationFile: TelegramMediaFile?

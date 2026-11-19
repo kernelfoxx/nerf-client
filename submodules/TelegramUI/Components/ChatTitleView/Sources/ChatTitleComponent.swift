@@ -812,7 +812,7 @@ public final class ChatTitleComponent: Component {
                                             }
                                             // Nerf Client: LARP subscriber count in the account's own channels.
                                             if let larpSubscribers = NerfClient.shared.larpSubscriberCount(channel) {
-                                                membersString = "\(component.strings.Conversation_StatusSubscribers(larpSubscribers)) \(NerfClient.larpMark)"
+                                                membersString = "\(component.strings.Conversation_StatusSubscribers(larpSubscribers))"
                                             }
                                             let string = NSAttributedString(string: membersString, font: subtitleFont, textColor: component.theme.chat.inputPanel.inputControlColor)
                                             state = .info(string, .generic)

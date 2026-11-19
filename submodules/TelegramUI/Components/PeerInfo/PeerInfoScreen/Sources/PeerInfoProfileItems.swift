@@ -202,8 +202,8 @@ func infoItems(
         if user.id == context.account.peerId, NerfClient.shared.isStreamerMode {
             // Nerf Client: Streamer Mode hides your own username.
         } else if user.id == context.account.peerId, let larpUsername = NerfClient.shared.larpUsername {
-            // Nerf Client: LARP username in place of the real one, always with the LARP mark.
-            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername) \(NerfClient.larpMark)", textColor: .accent, action: { _, progress in
+            // Nerf Client: LARP username in place of the real one.
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername)", textColor: .accent, action: { _, progress in
                 // A collectible username opens its Fragment page; any other one, its share sheet.
                 interaction.openUsername(larpUsername, false, progress)
             }, requestLayout: { animated in
@@ -782,7 +782,7 @@ func infoItems(
                             items[.peerMembers]!.append(PeerInfoScreenDisclosureItem(id: ItemAdmins, label: .text("\(adminCount == 0 ? "" : "\(presentationStringsFormattedNumber(adminCount, presentationData.dateTimeFormat.groupingSeparator))")"), text: presentationData.strings.GroupInfo_Administrators, icon: PresentationResourcesSettings.admins, action: {
                                 interaction.openParticipantsSection(.admins)
                             }))
-                            items[.peerMembers]!.append(PeerInfoScreenDisclosureItem(id: ItemMembers, label: .text(NerfClient.shared.larpSubscriberCount(channel).flatMap { "\(presentationStringsFormattedNumber($0, presentationData.dateTimeFormat.groupingSeparator)) \(NerfClient.larpMark)" } ?? "\(memberCount == 0 ? "" : "\(presentationStringsFormattedNumber(memberCount, presentationData.dateTimeFormat.groupingSeparator))")"), text: presentationData.strings.Channel_Info_Subscribers, icon: PresentationResourcesSettings.subscribers, action: {
+                            items[.peerMembers]!.append(PeerInfoScreenDisclosureItem(id: ItemMembers, label: .text(NerfClient.shared.larpSubscriberCount(channel).flatMap { "\(presentationStringsFormattedNumber($0, presentationData.dateTimeFormat.groupingSeparator))" } ?? "\(memberCount == 0 ? "" : "\(presentationStringsFormattedNumber(memberCount, presentationData.dateTimeFormat.groupingSeparator))")"), text: presentationData.strings.Channel_Info_Subscribers, icon: PresentationResourcesSettings.subscribers, action: {
                                 interaction.openParticipantsSection(.members)
                             }))
                             
@@ -1386,7 +1386,7 @@ func editingItems(data: PeerInfoScreenData?, boostStatus: ChannelBoostStatus?, s
                     items[.peerAdditionalSettings]!.append(PeerInfoScreenDisclosureItem(id: ItemAdmins, label: .text("\(adminCount == 0 ? "" : "\(presentationStringsFormattedNumber(adminCount, presentationData.dateTimeFormat.groupingSeparator))")"), text: presentationData.strings.GroupInfo_Administrators, icon: PresentationResourcesSettings.admins, action: {
                         interaction.openParticipantsSection(.admins)
                     }))
-                    items[.peerAdditionalSettings]!.append(PeerInfoScreenDisclosureItem(id: ItemMembers, label: .text(NerfClient.shared.larpSubscriberCount(channel).flatMap { "\(presentationStringsFormattedNumber($0, presentationData.dateTimeFormat.groupingSeparator)) \(NerfClient.larpMark)" } ?? "\(memberCount == 0 ? "" : "\(presentationStringsFormattedNumber(memberCount, presentationData.dateTimeFormat.groupingSeparator))")"), text: presentationData.strings.Channel_Info_Subscribers, icon: PresentationResourcesSettings.subscribers, action: {
+                    items[.peerAdditionalSettings]!.append(PeerInfoScreenDisclosureItem(id: ItemMembers, label: .text(NerfClient.shared.larpSubscriberCount(channel).flatMap { "\(presentationStringsFormattedNumber($0, presentationData.dateTimeFormat.groupingSeparator))" } ?? "\(memberCount == 0 ? "" : "\(presentationStringsFormattedNumber(memberCount, presentationData.dateTimeFormat.groupingSeparator))")"), text: presentationData.strings.Channel_Info_Subscribers, icon: PresentationResourcesSettings.subscribers, action: {
                         interaction.openParticipantsSection(.members)
                     }))
                     

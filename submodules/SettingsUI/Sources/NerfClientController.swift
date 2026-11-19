@@ -852,7 +852,7 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
                     switch result {
                     case let .upgraded(gift):
                         if case let .unique(uniqueGift) = gift {
-                            text = "Готово: \(uniqueGift.title) #\(uniqueGift.number) \(NerfClient.larpMark)"
+                            text = "Готово: \(uniqueGift.title) #\(uniqueGift.number)"
                         } else {
                             text = "Готово"
                         }
@@ -1175,7 +1175,7 @@ private func nerfCraftController(context: AccountContext) -> ViewController {
                             }
                         }
                     }
-                    text = "Скрафчено: \(uniqueGift.title) #\(uniqueGift.number)\(tier) \(NerfClient.larpMark)"
+                    text = "Скрафчено: \(uniqueGift.title) #\(uniqueGift.number)\(tier)"
                 } else {
                     text = "Готово"
                 }
@@ -1558,7 +1558,7 @@ private func nerfGiftConstructorController(context: AccountContext, gift: StarGi
         }
         let _ = (context.engine.payments.addCustomLarpUniqueGift(gift: gift, model: model, pattern: pattern, backdrop: backdrop, number: number)
         |> deliverOnMainQueue).startStandalone(next: { _ in
-            done("Готово: \(gift.title ?? "Gift") #\(number) \(NerfClient.larpMark). Он в твоём профиле.")
+            done("Готово: \(gift.title ?? "Gift") #\(number). Он в твоём профиле.")
         })
     })
 

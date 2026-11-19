@@ -5221,7 +5221,7 @@ private final class GiftViewSheetContent: CombinedComponent {
                                 HStack([
                                     AnyComponentWithIdentity(
                                         id: AnyHashable(0),
-                                        component: AnyComponent(MultilineTextComponent(text: .plain(NSAttributedString(string: "~\(formatCurrencyAmount(valueAmount, currency: valueCurrency))\(NerfClient.isLarpUniqueGift(uniqueGift) ? " \(NerfClient.larpMark)" : "")", font: tableFont, textColor: tableTextColor))))
+                                        component: AnyComponent(MultilineTextComponent(text: .plain(NSAttributedString(string: "~\(formatCurrencyAmount(valueAmount, currency: valueCurrency))", font: tableFont, textColor: tableTextColor))))
                                     ),
                                     AnyComponentWithIdentity(
                                         id: AnyHashable(1),

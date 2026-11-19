@@ -237,9 +237,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
             let textText = NSMutableAttributedString()
             switch component.initialData.subject {
             case let .username(username):
-                // Nerf Client: the account's LARP username always carries the LARP mark.
-                let larpMark = NerfClient.shared.larpUsername?.lowercased() == username.username.lowercased() ? " \(NerfClient.larpMark)" : ""
-                let rawTitleString = environment.strings.CollectibleItemInfo_UsernameTitle("@\(username.username)\(larpMark)")
+                let rawTitleString = environment.strings.CollectibleItemInfo_UsernameTitle("@\(username.username)")
                 titleText.append(NSAttributedString(string: rawTitleString.string, font: Font.semibold(16.0), textColor: environment.theme.list.itemPrimaryTextColor))
                 for range in rawTitleString.ranges {
                     titleText.addAttributes([
@@ -268,11 +266,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                     }
                 }
             case let .phoneNumber(phoneNumber):
-                var formattedPhoneNumber = formatPhoneNumber(context: component.context, number: phoneNumber.phoneNumber)
-                // Nerf Client: the account's LARP number always carries the LARP mark.
-                if let larpNumber = NerfClient.shared.larpNumber, cleanPhoneNumber(larpNumber, removePlus: true) == phoneNumber.phoneNumber {
-                    formattedPhoneNumber += " \(NerfClient.larpMark)"
-                }
+                let formattedPhoneNumber = formatPhoneNumber(context: component.context, number: phoneNumber.phoneNumber)
                 
                 let rawTitleString = environment.strings.CollectibleItemInfo_PhoneTitle("\(formattedPhoneNumber)")
                 titleText.append(NSAttributedString(string: rawTitleString.string, font: Font.semibold(16.0), textColor: environment.theme.list.itemPrimaryTextColor))
