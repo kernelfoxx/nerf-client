@@ -732,7 +732,7 @@ func _internal_transferLarpGift(account: Account, reference: StarGiftReference, 
             entities: nil,
             nameHidden: false
         ))
-        let message = StoreMessage(peerId: peerId, namespace: Namespaces.Message.Local, customStableId: nil, globallyUniqueId: randomId, groupingKey: nil, threadId: nil, timestamp: timestamp, flags: [], tags: [], globalTags: [], localTags: [], forwardInfo: nil, authorId: account.peerId, text: "", attributes: [], media: [TelegramMediaAction(action: action)])
+        let message = StoreMessage(peerId: peerId, namespace: Namespaces.Message.Local, customStableId: nil, globallyUniqueId: randomId, groupingKey: nil, threadId: nil, timestamp: timestamp, flags: [], tags: [], globalTags: [], localTags: [], forwardInfo: nil, authorId: account.peerId, text: "", attributes: [], media: [action])
         guard let id = transaction.addMessages([message], location: .Random)[randomId] else {
             return false
         }
@@ -753,6 +753,9 @@ func _internal_transferLarpGift(account: Account, reference: StarGiftReference, 
         }
         return true
     }
+    |> mapError { _ -> TransferStarGiftError in
+        return .generic
+    }
     |> mapToSignal { success -> Signal<Never, TransferStarGiftError> in
         return success ? .complete() : .fail(.generic)
     }
@@ -767,6 +770,9 @@ func _internal_resellLarpGift(account: Account, reference: StarGiftReference, pr
         return .fail(.generic)
     }
     return _internal_updateLarpUniqueGift(account: account, peerId: EnginePeer.Id(record.peerId), localMessageId: record.localMessageId, salePriceStars: price?.amount.value, valueCents: uniqueGift.valueAmount)
+    |> mapError { _ -> UpdateStarGiftPriceError in
+        return .generic
+    }
     |> mapToSignal { success -> Signal<Never, UpdateStarGiftPriceError> in
         return success ? .complete() : .fail(.generic)
     }
