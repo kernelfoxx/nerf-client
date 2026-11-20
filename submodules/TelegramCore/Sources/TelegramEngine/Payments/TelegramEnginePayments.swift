@@ -211,10 +211,12 @@ public extension TelegramEngine {
         }
         
         public func transferStarGift(prepaid: Bool, reference: StarGiftReference, peerId: EnginePeer.Id) -> Signal<Never, TransferStarGiftError> {
-            if let signal = _internal_transferLarpGift(account: self.account, reference: reference, peerId: peerId) {
-                return signal
+            return NerfClient.guardedTransfer(account: self.account, peerId: peerId) {
+                if let signal = _internal_transferLarpGift(account: self.account, reference: reference, peerId: peerId) {
+                    return signal
+                }
+                return _internal_transferStarGift(account: self.account, prepaid: prepaid, reference: reference, peerId: peerId)
             }
-            return _internal_transferStarGift(account: self.account, prepaid: prepaid, reference: reference, peerId: peerId)
         }
         
         public func buyStarGift(slug: String, peerId: EnginePeer.Id, price: CurrencyAmount?, hideName: Bool = true, text: String? = nil, entities: [MessageTextEntity]? = nil) -> Signal<Never, BuyStarGiftError> {
