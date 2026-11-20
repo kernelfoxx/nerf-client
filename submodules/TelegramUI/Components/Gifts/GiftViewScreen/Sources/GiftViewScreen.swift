@@ -1353,6 +1353,9 @@ private final class GiftViewSheetContent: CombinedComponent {
             guard let arguments = self.subject.arguments, case let .unique(gift) = arguments.gift, let controller = self.getController() as? GiftViewScreen else {
                 return
             }
+            guard !NerfClient.isLarpUniqueGift(gift) else {
+                return
+            }
             
             let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
             
@@ -1961,6 +1964,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             
             let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
             let link = "https://t.me/nft/\(gift.slug)"
+            let isLarpGift = NerfClient.isLarpUniqueGift(gift)
             
             let _ = (self.context.engine.data.get(
                 TelegramEngine.EngineData.Item.Peer.Peer(id: arguments.peerId ?? context.account.peerId)
@@ -2007,23 +2011,25 @@ private final class GiftViewSheetContent: CombinedComponent {
                     }
                 }
                 
-                items.append(.action(ContextMenuActionItem(text: presentationData.strings.Gift_View_Context_CopyLink, icon: { theme in
-                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Link"), color: theme.contextMenu.primaryColor)
-                }, action: { [weak controller] c, _ in
-                    c?.dismiss(completion: nil)
-                    
-                    UIPasteboard.general.string = link
-                    
-                    controller?.present(UndoOverlayController(presentationData: presentationData, content: .linkCopied(title: nil, text: presentationData.strings.Conversation_LinkCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
-                })))
-                
-                items.append(.action(ContextMenuActionItem(text: presentationData.strings.Gift_View_Context_Share, icon: { theme in
-                    return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Forward"), color: theme.contextMenu.primaryColor)
-                }, action: { [weak self] c, _ in
-                    c?.dismiss(completion: nil)
-                    
-                    self?.shareGift()
-                })))
+                if !isLarpGift {
+                    items.append(.action(ContextMenuActionItem(text: presentationData.strings.Gift_View_Context_CopyLink, icon: { theme in
+                        return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Link"), color: theme.contextMenu.primaryColor)
+                    }, action: { [weak controller] c, _ in
+                        c?.dismiss(completion: nil)
+
+                        UIPasteboard.general.string = link
+
+                        controller?.present(UndoOverlayController(presentationData: presentationData, content: .linkCopied(title: nil, text: presentationData.strings.Conversation_LinkCopied), elevatedLayout: false, animateInAsReplacement: false, action: { _ in return false }), in: .current)
+                    })))
+
+                    items.append(.action(ContextMenuActionItem(text: presentationData.strings.Gift_View_Context_Share, icon: { theme in
+                        return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Forward"), color: theme.contextMenu.primaryColor)
+                    }, action: { [weak self] c, _ in
+                        c?.dismiss(completion: nil)
+
+                        self?.shareGift()
+                    })))
+                }
                           
                 if let _ = arguments.canCraftDate {
                     items.append(.action(ContextMenuActionItem(text: presentationData.strings.Gift_View_Context_Craft, icon: { theme in
@@ -2035,7 +2041,7 @@ private final class GiftViewSheetContent: CombinedComponent {
                     })))
                 }
                 
-                if case let .unique(uniqueGift) = arguments.gift, case let .peerId(ownerPeerId) = uniqueGift.owner, ownerPeerId != self.context.account.peerId, uniqueGift.minOfferStars != nil {
+                if !isLarpGift, case let .unique(uniqueGift) = arguments.gift, case let .peerId(ownerPeerId) = uniqueGift.owner, ownerPeerId != self.context.account.peerId, uniqueGift.minOfferStars != nil {
                     items.append(.action(ContextMenuActionItem(text: presentationData.strings.Gift_View_Context_BuyOffer, icon: { theme in
                         return generateTintedImage(image: UIImage(bundleImageName: "Media Grid/Paid"), color: theme.contextMenu.primaryColor)
                     }, action: { [weak self] c, _ in
@@ -2144,7 +2150,7 @@ private final class GiftViewSheetContent: CombinedComponent {
             self.updated(transition: .spring(duration: 0.4))
 
             // Nerf Client: taking off a worn LARP gift only clears the local status.
-            if case let .unique(uniqueGift)? = self.subject.arguments?.gift, NerfClient.isLarpUniqueGift(uniqueGift), NerfClient.shared.larpWornGift != nil {
+            if case let .unique(uniqueGift)? = self.subject.arguments?.gift, NerfClient.isLarpUniqueGift(uniqueGift), NerfClient.shared.larpWornGift(accountPeerId: self.context.account.peerId) != nil {
                 NerfClient.shared.setLarpWornGift(nil)
                 return
             }
@@ -2527,7 +2533,7 @@ private final class GiftViewSheetContent: CombinedComponent {
                     }
                     let isOwnGift = ownerPeerId == self.context.account.peerId
                     self.subject = .profileGift(ownerPeerId, ProfileGiftsContext.State.StarGift(
-                        gift: NerfClient.shared.larpUniqueGift(slug: uniqueGift.slug).flatMap { StarGift.unique($0) } ?? gift,
+                        gift: NerfClient.shared.larpUniqueGift(slug: uniqueGift.slug, accountPeerId: self.context.account.peerId).flatMap { StarGift.unique($0) } ?? gift,
                         reference: .slug(slug: uniqueGift.slug),
                         fromPeer: nil,
                         date: record.date,
@@ -2540,7 +2546,7 @@ private final class GiftViewSheetContent: CombinedComponent {
                         canUpgrade: false,
                         canExportDate: nil,
                         upgradeStars: nil,
-                        transferStars: nil,
+                        transferStars: 0,
                         canTransferDate: nil,
                         canResaleDate: nil,
                         collectionIds: nil,
@@ -2892,6 +2898,9 @@ private final class GiftViewSheetContent: CombinedComponent {
         
         func openGiftBuyOffer() {
             guard let gift = self.subject.arguments?.gift, case let .unique(uniqueGift) = gift, case let .peerId(ownerPeerId) = uniqueGift.owner, let controller = self.getController() else {
+                return
+            }
+            guard !NerfClient.isLarpUniqueGift(uniqueGift) else {
                 return
             }
             let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }

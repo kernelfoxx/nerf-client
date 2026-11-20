@@ -1536,7 +1536,12 @@ private func nerfGiftConstructorController(context: AccountContext, gift: StarGi
             return
         }
         let _ = (context.engine.payments.addLarpGift(peerId: context.account.peerId, gift: .generic(gift), text: nil, entities: nil, nameHidden: false)
-        |> deliverOnMainQueue).startStandalone(next: { _ in
+        |> deliverOnMainQueue).startStandalone(next: { messageId in
+            guard messageId != nil else {
+                NerfClient.shared.refundLarpBalance(ton: false, amount: gift.price)
+                done("Не получилось выдать гифт.")
+                return
+            }
             done("Гифт выдан. Он в твоём профиле, улучшить можно кнопкой «Улучшить» в окне подарка.")
         })
     }, giveUnique: {
@@ -1557,7 +1562,12 @@ private func nerfGiftConstructorController(context: AccountContext, gift: StarGi
             return
         }
         let _ = (context.engine.payments.addCustomLarpUniqueGift(gift: gift, model: model, pattern: pattern, backdrop: backdrop, number: number)
-        |> deliverOnMainQueue).startStandalone(next: { _ in
+        |> deliverOnMainQueue).startStandalone(next: { messageId in
+            guard messageId != nil else {
+                NerfClient.shared.refundLarpBalance(ton: false, amount: price)
+                done("Не получилось создать гифт.")
+                return
+            }
             done("Готово: \(gift.title ?? "Gift") #\(number). Он в твоём профиле.")
         })
     })

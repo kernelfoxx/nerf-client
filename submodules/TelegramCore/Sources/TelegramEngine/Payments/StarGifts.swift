@@ -2708,6 +2708,27 @@ private final class ProfileGiftsContextImpl {
     }
 }
 
+private func nerfLarpGiftMatchesFilter(_ gift: ProfileGiftsContext.State.StarGift, filter: ProfileGiftsContext.Filters) -> Bool {
+    if filter == .All {
+        return true
+    }
+    if filter.contains(.peerColor) {
+        return false
+    }
+    if filter.contains(.displayed) && !gift.savedToProfile {
+        return false
+    }
+    if filter.contains(.hidden) && gift.savedToProfile {
+        return false
+    }
+    switch gift.gift {
+    case .generic:
+        return filter.contains(.limitedUpgradable) || filter.contains(.limitedNonUpgradable)
+    case .unique:
+        return filter.contains(.unique)
+    }
+}
+
 public final class ProfileGiftsContext {
     public struct Filters: OptionSet {
         public var rawValue: Int32
@@ -3083,7 +3104,10 @@ public final class ProfileGiftsContext {
             return serverState
         }
         return combineLatest(serverState, nerfProfileGifts(account: self.account, peerId: self.peerId))
-        |> map { state, larpGifts -> ProfileGiftsContext.State in
+        |> map { state, allLarpGifts -> ProfileGiftsContext.State in
+            let larpGifts = allLarpGifts.filter { gift in
+                return nerfLarpGiftMatchesFilter(gift, filter: state.filter)
+            }
             if larpGifts.isEmpty {
                 return state
             }
@@ -3133,20 +3157,33 @@ public final class ProfileGiftsContext {
     }
     
     public func updateStarGiftAddedToProfile(reference: StarGiftReference, added: Bool) {
+        if let _ = _internal_setLarpGiftSaved(account: self.account, reference: reference, added: added) {
+            return
+        }
         self.impl.with { impl in
             impl.updateStarGiftAddedToProfile(reference: reference, added: added)
         }
     }
     
     public func updateStarGiftPinnedToTop(reference: StarGiftReference, pinnedToTop: Bool) {
+        if let _ = _internal_setLarpGiftPinned(account: self.account, reference: reference, pinnedToTop: pinnedToTop) {
+            return
+        }
         self.impl.with { impl in
             impl.updateStarGiftPinnedToTop(reference: reference, pinnedToTop: pinnedToTop)
         }
     }
     
     public func updatePinnedToTopStarGifts(references: [StarGiftReference]) {
+        let _ = nerfApplyLarpPinnedReferences(account: self.account, references: references)
+        let serverReferences = references.filter { reference in
+            return nerfLarpRecord(account: self.account, reference: reference) == nil
+        }
+        guard !serverReferences.isEmpty else {
+            return
+        }
         self.impl.with { impl in
-            impl.updatePinnedToTopStarGifts(references: references)
+            impl.updatePinnedToTopStarGifts(references: serverReferences)
         }
     }
     
@@ -3165,6 +3202,9 @@ public final class ProfileGiftsContext {
     }
     
     public func convertStarGift(reference: StarGiftReference) {
+        if nerfLarpRecord(account: self.account, reference: reference) != nil {
+            return
+        }
         self.impl.with { impl in
             impl.convertStarGift(reference: reference)
         }
@@ -3209,6 +3249,9 @@ public final class ProfileGiftsContext {
     }
 
     public func transferStarGift(prepaid: Bool, reference: StarGiftReference, peerId: EnginePeer.Id) -> Signal<Never, TransferStarGiftError> {
+        if let signal = _internal_transferLarpGift(account: self.account, reference: reference, peerId: peerId) {
+            return signal
+        }
         return Signal { subscriber in
             let disposable = MetaDisposable()
             self.impl.with { impl in
@@ -3239,6 +3282,9 @@ public final class ProfileGiftsContext {
     }
     
     public func updateStarGiftResellPrice(reference: StarGiftReference, price: CurrencyAmount?, id: Int64? = nil) -> Signal<Never, UpdateStarGiftPriceError> {
+        if let signal = _internal_resellLarpGift(account: self.account, reference: reference, price: price) {
+            return signal
+        }
         return Signal { subscriber in
             let disposable = MetaDisposable()
             self.impl.with { impl in
@@ -3700,7 +3746,7 @@ public enum GetUniqueStarGiftError {
 func _internal_getUniqueStarGift(account: Account, slug: String) -> Signal<StarGift.UniqueGift, GetUniqueStarGiftError> {
     // Nerf Client: LARP gifts exist only on this device.
     if slug.hasPrefix("larp-") {
-        if let gift = NerfClient.shared.larpUniqueGift(slug: slug) {
+        if let gift = NerfClient.shared.larpUniqueGift(slug: slug, accountPeerId: account.peerId) {
             return .single(gift)
         }
         return .fail(.invalidSlug)
@@ -3735,7 +3781,7 @@ func _internal_getUniqueStarGift(account: Account, slug: String) -> Signal<StarG
 func _internal_getUniqueStarGiftValueInfo(account: Account, slug: String) -> Signal<StarGift.UniqueGift.ValueInfo?, NoError> {
     // Nerf Client: LARP gifts have a local value.
     if slug.hasPrefix("larp-") {
-        return .single(nerfLarpValueInfo(slug: slug))
+        return .single(nerfLarpValueInfo(slug: slug, accountPeerId: account.peerId))
     }
     return account.network.request(Api.functions.payments.getUniqueStarGiftValueInfo(slug: slug))
     |> map(Optional.init)

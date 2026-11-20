@@ -193,10 +193,16 @@ public extension TelegramEngine {
         }
         
         public func convertStarGift(reference: StarGiftReference) -> Signal<Never, NoError> {
+            if nerfLarpRecord(account: self.account, reference: reference) != nil {
+                return .complete()
+            }
             return _internal_convertStarGift(account: self.account, reference: reference)
         }
         
         public func updateStarGiftAddedToProfile(reference: StarGiftReference, added: Bool) -> Signal<Never, NoError> {
+            if let _ = _internal_setLarpGiftSaved(account: self.account, reference: reference, added: added) {
+                return .complete()
+            }
             return _internal_updateStarGiftAddedToProfile(account: self.account, reference: reference, added: added)
         }
         
@@ -205,6 +211,9 @@ public extension TelegramEngine {
         }
         
         public func transferStarGift(prepaid: Bool, reference: StarGiftReference, peerId: EnginePeer.Id) -> Signal<Never, TransferStarGiftError> {
+            if let signal = _internal_transferLarpGift(account: self.account, reference: reference, peerId: peerId) {
+                return signal
+            }
             return _internal_transferStarGift(account: self.account, prepaid: prepaid, reference: reference, peerId: peerId)
         }
         
@@ -245,6 +254,9 @@ public extension TelegramEngine {
         }
         
         public func updateStarGiftResalePrice(reference: StarGiftReference, price: CurrencyAmount?) -> Signal<Never, UpdateStarGiftPriceError> {
+            if let signal = _internal_resellLarpGift(account: self.account, reference: reference, price: price) {
+                return signal
+            }
             return _internal_updateStarGiftResalePrice(account: self.account, reference: reference, price: price)
         }
         

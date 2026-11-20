@@ -605,7 +605,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                 credibilityIcon = .fake
             } else if peer.isScam {
                 credibilityIcon = .scam
-            } else if peer.id == self.context.account.peerId, let larpStatus = NerfClient.shared.larpWornEmojiStatus, !NerfClient.shared.isStreamerMode {
+            } else if peer.id == self.context.account.peerId, let larpStatus = NerfClient.shared.larpWornEmojiStatus(accountPeerId: self.context.account.peerId), !NerfClient.shared.isStreamerMode {
                 // Nerf Client: the worn LARP gift on this device.
                 statusIcon = .emojiStatus(larpStatus)
             } else if let emojiStatus = peer.emojiStatus {
@@ -1247,7 +1247,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
                     if NerfClient.shared.settings.larpPremium {
                         subtitle = "\(subtitle) • Premium"
                     }
-                    if NerfClient.shared.larpWornGift != nil {
+                    if NerfClient.shared.larpWornGift(accountPeerId: self.context.account.peerId) != nil {
                         subtitle = "\(subtitle) • Статус"
                     }
                     if let larpStarRating = NerfClient.shared.larpStarRating {
