@@ -753,9 +753,7 @@ func _internal_transferLarpGift(account: Account, reference: StarGiftReference, 
         }
         return true
     }
-    |> mapError { _ -> TransferStarGiftError in
-        return .generic
-    }
+    |> castError(TransferStarGiftError.self)
     |> mapToSignal { success -> Signal<Never, TransferStarGiftError> in
         return success ? .complete() : .fail(.generic)
     }
@@ -770,9 +768,7 @@ func _internal_resellLarpGift(account: Account, reference: StarGiftReference, pr
         return .fail(.generic)
     }
     return _internal_updateLarpUniqueGift(account: account, peerId: EnginePeer.Id(record.peerId), localMessageId: record.localMessageId, salePriceStars: price?.amount.value, valueCents: uniqueGift.valueAmount)
-    |> mapError { _ -> UpdateStarGiftPriceError in
-        return .generic
-    }
+    |> castError(UpdateStarGiftPriceError.self)
     |> mapToSignal { success -> Signal<Never, UpdateStarGiftPriceError> in
         return success ? .complete() : .fail(.generic)
     }
