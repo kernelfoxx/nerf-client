@@ -27,12 +27,9 @@ private final class NerfClientControllerArguments {
     let updateLarpToggle: (NerfLarpToggle, Bool) -> Void
     let updateLarpNumberSetting: (NerfNumberSetting, String) -> Void
     let updateLarpGram: (String) -> Void
-    let updateNerfGramServerURL: (String) -> Void
-    let updateNerfGramKey: (String) -> Void
-    let activateNerfGram: () -> Void
     let openMode: (NerfClientMode) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, updateNerfGramServerURL: @escaping (String) -> Void, updateNerfGramKey: @escaping (String) -> Void, activateNerfGram: @escaping () -> Void, openMode: @escaping (NerfClientMode) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, openMode: @escaping (NerfClientMode) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -51,9 +48,6 @@ private final class NerfClientControllerArguments {
         self.updateLarpToggle = updateLarpToggle
         self.updateLarpNumberSetting = updateLarpNumberSetting
         self.updateLarpGram = updateLarpGram
-        self.updateNerfGramServerURL = updateNerfGramServerURL
-        self.updateNerfGramKey = updateNerfGramKey
-        self.activateNerfGram = activateNerfGram
         self.openMode = openMode
     }
 }
@@ -251,7 +245,6 @@ public enum NerfClientMode {
     case root
     case larp
     case features
-    case nerfGram
 }
 
 private enum NerfClientSection: Int32 {
@@ -267,12 +260,10 @@ private enum NerfClientSection: Int32 {
     case larpChannel
     case larpGram
     case larpGiftList
-    case nerfGramSubscription
 }
 
 private enum NerfClientEntry: ItemListNodeEntry {
     case rootLarp
-    case rootNerfGram
     case rootFeatures
     case visualHeader
     case featuresHeader
@@ -313,16 +304,10 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpGramInfo
     case larpGiftListItem(Int32, NerfLarpGiftRow)
     case larpGiftListInfo
-    case subscriptionHeader
-    case subscriptionStatus(String)
-    case subscriptionServerInput(String)
-    case subscriptionKeyInput(String)
-    case subscriptionActivate
-    case subscriptionInfo
 
     var section: ItemListSectionId {
         switch self {
-        case .rootLarp, .rootNerfGram, .rootFeatures:
+        case .rootLarp, .rootFeatures:
             return NerfClientSection.root.rawValue
         case .visualHeader:
             return NerfClientSection.visual.rawValue
@@ -366,8 +351,6 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return NerfClientSection.larpGram.rawValue
         case .larpGiftListHeader, .larpGiveGift, .larpCraft, .larpGiftListItem, .larpGiftListInfo:
             return NerfClientSection.larpGiftList.rawValue
-        case .subscriptionHeader, .subscriptionStatus, .subscriptionServerInput, .subscriptionKeyInput, .subscriptionActivate, .subscriptionInfo:
-            return NerfClientSection.nerfGramSubscription.rawValue
         }
     }
 
@@ -375,8 +358,6 @@ private enum NerfClientEntry: ItemListNodeEntry {
         switch self {
         case .rootLarp:
             return -1000
-        case .rootNerfGram:
-            return -998
         case .rootFeatures:
             return -999
         case .visualHeader:
@@ -465,18 +446,6 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return 40
         case .larpChannelInfo:
             return 50
-        case .subscriptionHeader:
-            return 70
-        case .subscriptionStatus:
-            return 71
-        case .subscriptionServerInput:
-            return 72
-        case .subscriptionKeyInput:
-            return 73
-        case .subscriptionActivate:
-            return 74
-        case .subscriptionInfo:
-            return 75
         case .larpGiftListHeader:
             return 997
         case .larpGiveGift:
@@ -500,10 +469,6 @@ private enum NerfClientEntry: ItemListNodeEntry {
         case .rootLarp:
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "LARP", label: "гифты, балансы, профиль, канал", sectionId: self.section, style: .blocks, action: {
                 arguments.openMode(.larp)
-            })
-        case .rootNerfGram:
-            return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "Nerf Gram", label: NerfClient.shared.isNerfGramActive ? "активна" : "подписка", sectionId: self.section, style: .blocks, action: {
-                arguments.openMode(.nerfGram)
             })
         case .rootFeatures:
             return ItemListDisclosureItem(presentationData: presentationData, systemStyle: .glass, title: "Визуал и функции", label: "", sectionId: self.section, style: .blocks, action: {
@@ -623,24 +588,6 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return ItemListTextItem(presentationData: presentationData, text: .plain("Значок Premium и юзернейм подменяются только на экране этого устройства, в настройках и твоём профиле, и всегда с пометкой LARP. Настоящий аккаунт не меняется."), sectionId: self.section)
         case .larpNumberInfo:
             return ItemListTextItem(presentationData: presentationData, text: .plain("Номер подменяется только на экране этого устройства, справа от него всегда стоит LARP. Настоящий номер в аккаунте не меняется."), sectionId: self.section)
-        case .subscriptionHeader:
-            return ItemListSectionHeaderItem(presentationData: presentationData, text: "NERF GRAM", sectionId: self.section)
-        case let .subscriptionStatus(text):
-            return ItemListTextItem(presentationData: presentationData, text: .plain(text), sectionId: self.section)
-        case let .subscriptionServerInput(text):
-            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: "Сервер"), text: text, placeholder: NerfClient.defaultNerfGramServerURL, type: .regular(capitalization: false, autocorrection: false), sectionId: self.section, textUpdated: { value in
-                arguments.updateNerfGramServerURL(value)
-            }, action: {})
-        case let .subscriptionKeyInput(text):
-            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(string: "Ключ"), text: text, placeholder: "NFG-XXXXXX-XX", type: .regular(capitalization: false, autocorrection: false), sectionId: self.section, textUpdated: { value in
-                arguments.updateNerfGramKey(value)
-            }, action: {})
-        case .subscriptionActivate:
-            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Проверить и активировать", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
-                arguments.activateNerfGram()
-            })
-        case .subscriptionInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Тарифы: 3 дня — бесплатная проба один раз, 7 дней — $2, 30 дней — $4. Открой бота Nerf Gram, получи ключ и введи его выше. Подписка нужна для передачи подарков: только после недели переписки и с предупреждением, что это для LARP, не для скама."), sectionId: self.section)
         }
     }
 }
@@ -685,8 +632,6 @@ private func nerfClientTitle(_ mode: NerfClientMode) -> String {
         return "LARP"
     case .features:
         return "Визуал и функции"
-    case .nerfGram:
-        return "Nerf Gram"
     }
 }
 
@@ -695,34 +640,12 @@ private func nerfNumberText(_ settings: NerfClient.Settings, _ setting: NerfNumb
     return value == setting.defaultValue ? "" : "\(value)"
 }
 
-private func nerfGramStatusText(_ settings: NerfClient.Settings) -> String {
-    guard settings.nerfGramActiveUntil > Int32(Date().timeIntervalSince1970) else {
-        return settings.nerfGramKey.isEmpty ? "Подписка не активирована." : "Срок подписки истёк. Получи новый ключ в боте Nerf Gram."
-    }
-    let formatter = DateFormatter()
-    formatter.timeZone = TimeZone(secondsFromGMT: 0)
-    formatter.dateStyle = .medium
-    formatter.timeStyle = .short
-    let date = formatter.string(from: Date(timeIntervalSince1970: TimeInterval(settings.nerfGramActiveUntil)))
-    let plan = settings.nerfGramPlan.isEmpty ? "" : " (\(settings.nerfGramPlan))"
-    return "Активна до \(date) UTC\(plan)."
-}
-
 private func nerfClientControllerEntries(mode: NerfClientMode, settings: NerfClient.Settings, inputState: NerfClientInputState, larpGiftCount: Int, larpGiftRows: [NerfLarpGiftRow]) -> [NerfClientEntry] {
     var entries: [NerfClientEntry] = []
     switch mode {
     case .root:
         entries.append(.rootLarp)
-        entries.append(.rootNerfGram)
         entries.append(.rootFeatures)
-        return entries
-    case .nerfGram:
-        entries.append(.subscriptionHeader)
-        entries.append(.subscriptionStatus(nerfGramStatusText(settings)))
-        entries.append(.subscriptionServerInput(settings.nerfGramServerURL))
-        entries.append(.subscriptionKeyInput(settings.nerfGramKey))
-        entries.append(.subscriptionActivate)
-        entries.append(.subscriptionInfo)
         return entries
     case .features:
         entries.append(.visualHeader)
@@ -978,67 +901,6 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
             current.larpGramNano = larpTonNano(text: value)
             return current
         }
-    }, updateNerfGramServerURL: { value in
-        NerfClient.shared.updateSettings { current in
-            var current = current
-            current.nerfGramServerURL = value
-            return current
-        }
-    }, updateNerfGramKey: { value in
-        NerfClient.shared.updateSettings { current in
-            var current = current
-            current.nerfGramKey = value
-            return current
-        }
-    }, activateNerfGram: {
-        let settings = NerfClient.shared.settings
-        let key = settings.nerfGramKey.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let base = settings.nerfGramServerURL.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard !key.isEmpty, var components = URLComponents(string: base) else {
-            let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-            presentControllerImpl?(textAlertController(context: context, title: nil, text: "Введи ключ подписки и правильный адрес сервера Nerf Gram.", actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
-            return
-        }
-        components.path = "/api/entitlement"
-        components.queryItems = [URLQueryItem(name: "key", value: key)]
-        guard let url = components.url else {
-            return
-        }
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15.0)
-        request.httpMethod = "GET"
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            let message: String
-            var activatedPlan: String?
-            var activatedUntil: Int32?
-            if let error {
-                message = "Не удалось связаться с сервером: \(error.localizedDescription)"
-            } else if let data, let object = try? JSONSerialization.jsonObject(with: data, options: []), let json = object as? [String: Any] {
-                if json["valid"] as? Bool == true, json["active"] as? Bool == true {
-                    activatedPlan = json["plan"] as? String ?? ""
-                    activatedUntil = (json["active_until"] as? NSNumber)?.int32Value ?? 0
-                    message = "Подписка Nerf Gram активирована. Передача подарков доступна только после недели переписки."
-                } else {
-                    message = "Ключ не найден, уже использован другим устройством или истёк."
-                }
-            } else {
-                message = "Сервер вернул неожиданный ответ."
-            }
-            DispatchQueue.main.async {
-                if let activatedPlan, let activatedUntil, activatedUntil > 0 {
-                    NerfClient.shared.updateSettings { current in
-                        var current = current
-                        current.nerfGramKey = key
-                        current.nerfGramPlan = activatedPlan
-                        if activatedUntil > current.nerfGramActiveUntil {
-                            current.nerfGramActiveUntil = activatedUntil
-                        }
-                        return current
-                    }
-                }
-                let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-                presentControllerImpl?(textAlertController(context: context, title: nil, text: message, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
-            }
-        }.resume()
     }, openMode: { mode in
         pushControllerImpl?(nerfClientController(context: context, mode: mode))
     })

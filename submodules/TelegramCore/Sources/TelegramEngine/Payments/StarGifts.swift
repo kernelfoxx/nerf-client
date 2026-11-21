@@ -3249,21 +3249,19 @@ public final class ProfileGiftsContext {
     }
 
     public func transferStarGift(prepaid: Bool, reference: StarGiftReference, peerId: EnginePeer.Id) -> Signal<Never, TransferStarGiftError> {
-        return NerfClient.guardedTransfer(account: self.account, peerId: peerId) {
-            if let signal = _internal_transferLarpGift(account: self.account, reference: reference, peerId: peerId) {
-                return signal
+        if let signal = _internal_transferLarpGift(account: self.account, reference: reference, peerId: peerId) {
+            return signal
+        }
+        return Signal { subscriber in
+            let disposable = MetaDisposable()
+            self.impl.with { impl in
+                disposable.set(impl.transferStarGift(prepaid: prepaid, reference: reference, peerId: peerId).start(error: { error in
+                    subscriber.putError(error)
+                }, completed: {
+                    subscriber.putCompletion()
+                }))
             }
-            return Signal { subscriber in
-                let disposable = MetaDisposable()
-                self.impl.with { impl in
-                    disposable.set(impl.transferStarGift(prepaid: prepaid, reference: reference, peerId: peerId).start(error: { error in
-                        subscriber.putError(error)
-                    }, completed: {
-                        subscriber.putCompletion()
-                    }))
-                }
-                return disposable
-            }
+            return disposable
         }
     }
 

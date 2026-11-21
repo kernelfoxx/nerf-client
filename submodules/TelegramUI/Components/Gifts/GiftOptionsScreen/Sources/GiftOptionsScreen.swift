@@ -812,30 +812,6 @@ final class GiftOptionsScreenComponent: Component {
         }
         
         func transferGift(_ transferGift: StarGift.UniqueGift) {
-            guard let environment = self.environment, let peer = self.state?.peer, let controller = environment.controller() as? GiftOptionsScreen else {
-                return
-            }
-            let context = self.context
-            let _ = (NerfClient.transferPrecondition(account: context.account, peerId: peer.id)
-            |> deliverOnMainQueue).start(next: { precondition in
-                let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-                let actions: [TextAlertAction]
-                if let message = NerfClient.transferPreconditionMessage(precondition) {
-                    actions = [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]
-                } else {
-                    actions = [
-                        TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}),
-                        TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {
-                            self.performTransferGift(transferGift)
-                        })
-                    ]
-                }
-                let alertText = NerfClient.transferPreconditionMessage(precondition) ?? NerfClient.larpTransferWarning
-                controller.present(textAlertController(context: context, title: nil, text: alertText, actions: actions), in: .window(.root))
-            })
-        }
-
-        private func performTransferGift(_ transferGift: StarGift.UniqueGift) {
             guard let component = self.component, let environment = self.environment, let peer = self.state?.peer, let controller = environment.controller() as? GiftOptionsScreen else {
                 return
             }
@@ -1023,6 +999,7 @@ final class GiftOptionsScreenComponent: Component {
                     }
                 }
             )
+            controller.present(alertController, in: .current)
             
             dismissAlertImpl = { [weak alertController] in
                 alertController?.dismiss()

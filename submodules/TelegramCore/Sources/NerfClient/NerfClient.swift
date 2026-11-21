@@ -12,12 +12,6 @@ public final class NerfClient {
     /// What Streamer Mode shows in place of hidden values.
     public static let streamerMask = "•••"
 
-    /// Replace with the deployed backend URL at build time if you do not want users to set it in Settings.
-    public static let defaultNerfGramServerURL = "https://nerfgram.example.com"
-
-    /// Shown before any NFT/gift transfer: this is a LARP tool, not a way to scam someone.
-    public static let larpTransferWarning = "Передача подарков доступна только после недели переписки с получателем и при активной подписке Nerf Gram. Это для LARP, не для скама."
-
     public struct Settings: Equatable {
         public var larpGiftsEnabled: Bool
         public var larpNumberEnabled: Bool
@@ -57,11 +51,6 @@ public final class NerfClient {
         public var larpGramNano: Int64 = 0
         public var larpPremiumMonths: Int32 = 0
         public var larpPremiumSince: Int32 = 0
-        /// Nerf Gram subscription state, activated by a key issued by the payment backend.
-        public var nerfGramKey: String = ""
-        public var nerfGramPlan: String = ""
-        public var nerfGramActiveUntil: Int32 = 0
-        public var nerfGramServerURL: String = NerfClient.defaultNerfGramServerURL
         public var larpUsernameEnabled: Bool = false
         public var larpUsername: String = ""
 
@@ -193,10 +182,6 @@ public final class NerfClient {
         static let larpGramNano = "nerf.larpGramNano"
         static let larpPremiumMonths = "nerf.larpPremiumMonths"
         static let larpPremiumSince = "nerf.larpPremiumSince"
-        static let nerfGramKey = "nerf.nerfGramKey"
-        static let nerfGramPlan = "nerf.nerfGramPlan"
-        static let nerfGramActiveUntil = "nerf.nerfGramActiveUntil"
-        static let nerfGramServerURL = "nerf.nerfGramServerURL"
         static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
         static let larpUsername = "nerf.larpUsername"
     }
@@ -248,11 +233,6 @@ public final class NerfClient {
         settingsValue.larpGramNano = (defaults.object(forKey: Keys.larpGramNano) as? NSNumber)?.int64Value ?? 0
         settingsValue.larpPremiumMonths = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumMonths))
         settingsValue.larpPremiumSince = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumSince))
-        settingsValue.nerfGramKey = defaults.string(forKey: Keys.nerfGramKey) ?? ""
-        settingsValue.nerfGramPlan = defaults.string(forKey: Keys.nerfGramPlan) ?? ""
-        settingsValue.nerfGramActiveUntil = Int32(clamping: defaults.integer(forKey: Keys.nerfGramActiveUntil))
-        let storedServerURL = defaults.string(forKey: Keys.nerfGramServerURL) ?? ""
-        settingsValue.nerfGramServerURL = storedServerURL.isEmpty ? NerfClient.defaultNerfGramServerURL : storedServerURL
         settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
         settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
         var larpGifts: [LarpGift] = []
@@ -316,10 +296,6 @@ public final class NerfClient {
         self.defaults.set(NSNumber(value: updated.larpGramNano), forKey: Keys.larpGramNano)
         self.defaults.set(Int(updated.larpPremiumMonths), forKey: Keys.larpPremiumMonths)
         self.defaults.set(Int(updated.larpPremiumSince), forKey: Keys.larpPremiumSince)
-        self.defaults.set(updated.nerfGramKey, forKey: Keys.nerfGramKey)
-        self.defaults.set(updated.nerfGramPlan, forKey: Keys.nerfGramPlan)
-        self.defaults.set(Int(updated.nerfGramActiveUntil), forKey: Keys.nerfGramActiveUntil)
-        self.defaults.set(updated.nerfGramServerURL, forKey: Keys.nerfGramServerURL)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
         self.settingsPromise.set(updated)
@@ -341,86 +317,6 @@ public final class NerfClient {
         return overflow ? Int32.max : until
     }
 
-    /// Whether a Nerf Gram key has been activated and has not expired yet.
-    public var isNerfGramActive: Bool {
-        return self.settings.nerfGramActiveUntil > Int32(Date().timeIntervalSince1970)
-    }
-}
-
-public enum NerfTransferPrecondition {
-    case allowed
-    case subscriptionRequired
-    case chatTooNew
-}
-
-public extension NerfClient {
-    /// Human-readable reason a gift transfer is refused, or nil when it is allowed.
-    static func transferPreconditionMessage(_ precondition: NerfTransferPrecondition) -> String? {
-        switch precondition {
-        case .allowed:
-            return nil
-        case .subscriptionRequired:
-            return "Для передачи подарков нужна активная подписка Nerf Gram. Открой бота, чтобы получить ключ."
-        case .chatTooNew:
-            return "Передача доступна только после недели переписки с получателем. Это для LARP, не для скама."
-        }
-    }
-
-    /// Checks both the local subscription and the local chat history before a gift is transferred.
-    /// The chat must contain at least one cloud message older than seven days.
-    static func transferPrecondition(account: Account, peerId: EnginePeer.Id) -> Signal<NerfTransferPrecondition, NoError> {
-        let active = NerfClient.shared.isNerfGramActive
-        return account.postbox.transaction { transaction -> NerfTransferPrecondition in
-            guard active else {
-                return .subscriptionRequired
-            }
-            guard NerfClient.hasWeekOldChat(transaction: transaction, peerId: peerId) else {
-                return .chatTooNew
-            }
-            return .allowed
-        }
-    }
-
-    /// Wraps a transfer signal so it fails unless both transfer rules are satisfied.
-    static func guardedTransfer(
-        account: Account,
-        peerId: EnginePeer.Id,
-        signal: @escaping () -> Signal<Never, TransferStarGiftError>
-    ) -> Signal<Never, TransferStarGiftError> {
-        return transferPrecondition(account: account, peerId: peerId)
-        |> castError(TransferStarGiftError.self)
-        |> mapToSignal { precondition -> Signal<Never, TransferStarGiftError> in
-            switch precondition {
-            case .allowed:
-                return signal()
-            default:
-                return .fail(.disallowedStarGift)
-            }
-        }
-    }
-
-    private static func hasWeekOldChat(transaction: Transaction, peerId: EnginePeer.Id) -> Bool {
-        let namespace = Namespaces.Message.Cloud
-        let cutoff = Int32(Date().timeIntervalSince1970) - 7 * 24 * 60 * 60
-        var from = MessageIndex.upperBound(peerId: peerId, namespace: namespace)
-        let to = MessageIndex.lowerBound(peerId: peerId, namespace: namespace)
-        while true {
-            let messages = transaction.getMessages(peerId: peerId, namespace: namespace, from: from, includeFrom: false, to: to, limit: 100)
-            guard let oldest = messages.min(by: { $0.index < $1.index }) else {
-                return false
-            }
-            if oldest.timestamp <= cutoff {
-                return true
-            }
-            guard oldest.index < from else {
-                return false
-            }
-            from = oldest.index
-        }
-    }
-}
-
-public extension NerfClient {
     /// The account as its own profile header shows it: with the worn LARP gift (which also gives
     /// the gift's backdrop and sparkles) and the LARP name and profile colors.
     public func larpPresentedAccountPeer(_ peer: EnginePeer?, accountPeerId: EnginePeer.Id) -> EnginePeer? {
@@ -653,18 +549,6 @@ public extension NerfClient {
             return nil
         }
         return PeerEmojiStatus(content: .starGift(id: gift.id, fileId: fileId, title: gift.title, slug: gift.slug, patternFileId: patternFileId, innerColor: colors.0, outerColor: colors.1, patternColor: colors.2, textColor: colors.3), expirationDate: nil)
-    }
-
-    public func isLarpGift(_ gift: StarGift) -> Bool {
-        guard case let .unique(uniqueGift) = gift else {
-            return false
-        }
-        return self.larpGifts.contains { record in
-            guard case let .unique(recordGift) = record.gift else {
-                return false
-            }
-            return recordGift.slug == uniqueGift.slug
-        }
     }
 
     public func isLarpProfileGift(accountPeerId: EnginePeer.Id, peerId: EnginePeer.Id, gift: StarGift, date: Int32) -> Bool {

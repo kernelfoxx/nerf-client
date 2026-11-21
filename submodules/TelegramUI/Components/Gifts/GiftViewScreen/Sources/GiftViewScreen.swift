@@ -1605,25 +1605,6 @@ private final class GiftViewSheetContent: CombinedComponent {
         }
         
         func transferGift() {
-            guard let controller = self.getController() as? GiftViewScreen else {
-                return
-            }
-            let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
-            let warningController = textAlertController(
-                context: self.context,
-                title: nil,
-                text: NerfClient.larpTransferWarning,
-                actions: [
-                    TextAlertAction(type: .genericAction, title: presentationData.strings.Common_Cancel, action: {}),
-                    TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {
-                        self.performTransferGift()
-                    })
-                ]
-            )
-            controller.present(warningController, in: .window(.root))
-        }
-
-        private func performTransferGift() {
             guard let arguments = self.subject.arguments, let controller = self.getController() as? GiftViewScreen, case let .unique(gift) = arguments.gift, let reference = arguments.reference, let transferStars = arguments.transferStars else {
                 return
             }
