@@ -589,7 +589,7 @@ final class PeerInfoHeaderNode: ASDisplayNode {
     func update(width: CGFloat, containerHeight: CGFloat, containerInset: CGFloat, sideInsets: PeerInfoSideInsets, statusBarHeight: CGFloat, navigationHeight: CGFloat, presentedInFormSheet: Bool, isMediaOnly: Bool, contentOffset: CGFloat, paneContainerY: CGFloat, presentationData: PresentationData, peer: EnginePeer?, cachedData: EngineCachedPeerData?, threadData: MessageHistoryThreadData?, peerNotificationSettings: TelegramPeerNotificationSettings?, threadNotificationSettings: TelegramPeerNotificationSettings?, globalNotificationSettings: EngineGlobalNotificationSettings?, statusData: PeerInfoStatusData?, panelStatusData: (PeerInfoStatusData?, PeerInfoStatusData?, CGFloat?), isSecretChat: Bool, isContact: Bool, isSettings: Bool, state: PeerInfoState, profileGiftsContext: ProfileGiftsContext?, screenData: PeerInfoScreenData?, isSearching: Bool, metrics: LayoutMetrics, deviceMetrics: DeviceMetrics, transition: ContainedViewLayoutTransition, additive: Bool, animateHeader: Bool) -> CGFloat {
         // Nerf Client: your own header shows the worn LARP gift (its backdrop and sparkles) and the
         // LARP name and profile colors, on this device only.
-        let peer = NerfClient.shared.larpPresentedAccountPeer(peer, accountPeerId: self.context.account.peerId)
+        var peer = NerfClient.shared.larpPresentedAccountPeer(peer, accountPeerId: self.context.account.peerId)
         // iPhone Duo: keep the header out of the side strip; without one every expression below is today's.
         let stripLeft = sideInsets.stripLeft
         let stripRight = sideInsets.stripRight
@@ -627,7 +627,6 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         // A suspicious peer's emoji status is not shown, as in their chat's title: neither the icon nor
         // the cover and colours a collectible status brings.
-        var peer = peer
         if case let .user(user) = peer, user.emojiStatus != nil, (cachedData as? CachedUserData)?.isSuspiciousPeer == true {
             peer = .user(user.withUpdatedEmojiStatus(nil))
         }
