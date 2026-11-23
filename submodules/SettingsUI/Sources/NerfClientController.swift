@@ -1108,12 +1108,13 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
         guard !name.isEmpty else {
             return
         }
-        let _ = (context.engine.payments.loadLarpVerification(name: name, fallbackNames: preset?.fallbackNames ?? [])
+        let sourceName = name
+        let _ = (context.engine.payments.loadLarpVerification(name: sourceName, fallbackNames: preset?.fallbackNames ?? [])
         |> deliverOnMainQueue).start(next: { isLoaded in
             if isLoaded, preset != nil {
                 NerfClient.shared.updateSettings { current in
                     var current = current
-                    current.larpVerificationSource = name
+                    current.larpVerificationSource = sourceName
                     return current
                 }
             }
@@ -1124,7 +1125,7 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
             } else if let preset {
                 text = "Не удалось получить значок \(preset.title) из Telegram. Впиши юзернейм аккаунта, у которого он стоит, и нажми «Загрузить значок по юзернейму»."
             } else {
-                text = "У @\(name) нет значка сторонней верификации."
+                text = "У @\(sourceName) нет значка сторонней верификации."
             }
             presentControllerImpl?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
         })
