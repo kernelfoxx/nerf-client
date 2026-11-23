@@ -61,6 +61,12 @@ public final class NerfClient {
         public var larpUsernamePurchaseDate: String = ""
         public var larpNumberPrice: String = ""
         public var larpNumberPurchaseDate: String = ""
+        public var larpVerificationEnabled: Bool = false
+        /// The username the verification mark was copied from, as typed.
+        public var larpVerificationSource: String = ""
+        public var larpVerificationIconFileId: Int64 = 0
+        public var larpVerificationBotId: Int64 = 0
+        public var larpVerificationDescription: String = ""
 
         public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64, streamerMode: Bool, showUserId: Bool) {
             self.larpGiftsEnabled = larpGiftsEnabled
@@ -208,6 +214,11 @@ public final class NerfClient {
         static let larpUsernamePurchaseDate = "nerf.larpUsernamePurchaseDate"
         static let larpNumberPrice = "nerf.larpNumberPrice"
         static let larpNumberPurchaseDate = "nerf.larpNumberPurchaseDate"
+        static let larpVerificationEnabled = "nerf.larpVerificationEnabled"
+        static let larpVerificationSource = "nerf.larpVerificationSource"
+        static let larpVerificationIconFileId = "nerf.larpVerificationIconFileId"
+        static let larpVerificationBotId = "nerf.larpVerificationBotId"
+        static let larpVerificationDescription = "nerf.larpVerificationDescription"
     }
 
     private let defaults = UserDefaults.standard
@@ -266,6 +277,11 @@ public final class NerfClient {
         settingsValue.larpUsernamePurchaseDate = defaults.string(forKey: Keys.larpUsernamePurchaseDate) ?? ""
         settingsValue.larpNumberPrice = defaults.string(forKey: Keys.larpNumberPrice) ?? ""
         settingsValue.larpNumberPurchaseDate = defaults.string(forKey: Keys.larpNumberPurchaseDate) ?? ""
+        settingsValue.larpVerificationEnabled = defaults.bool(forKey: Keys.larpVerificationEnabled)
+        settingsValue.larpVerificationSource = defaults.string(forKey: Keys.larpVerificationSource) ?? ""
+        settingsValue.larpVerificationIconFileId = (defaults.object(forKey: Keys.larpVerificationIconFileId) as? NSNumber)?.int64Value ?? 0
+        settingsValue.larpVerificationBotId = (defaults.object(forKey: Keys.larpVerificationBotId) as? NSNumber)?.int64Value ?? 0
+        settingsValue.larpVerificationDescription = defaults.string(forKey: Keys.larpVerificationDescription) ?? ""
         var larpGifts: [LarpGift] = []
         if let data = defaults.data(forKey: Keys.larpGifts), let value = try? AdaptedPostboxDecoder().decode(StoredLarpGifts.self, from: data) {
             larpGifts = value.gifts
@@ -334,6 +350,11 @@ public final class NerfClient {
         self.defaults.set(updated.larpUsernamePurchaseDate, forKey: Keys.larpUsernamePurchaseDate)
         self.defaults.set(updated.larpNumberPrice, forKey: Keys.larpNumberPrice)
         self.defaults.set(updated.larpNumberPurchaseDate, forKey: Keys.larpNumberPurchaseDate)
+        self.defaults.set(updated.larpVerificationEnabled, forKey: Keys.larpVerificationEnabled)
+        self.defaults.set(updated.larpVerificationSource, forKey: Keys.larpVerificationSource)
+        self.defaults.set(NSNumber(value: updated.larpVerificationIconFileId), forKey: Keys.larpVerificationIconFileId)
+        self.defaults.set(NSNumber(value: updated.larpVerificationBotId), forKey: Keys.larpVerificationBotId)
+        self.defaults.set(updated.larpVerificationDescription, forKey: Keys.larpVerificationDescription)
         self.settingsPromise.set(updated)
     }
 
@@ -371,7 +392,25 @@ public final class NerfClient {
         if settings.larpProfileColor > 0 {
             updated = updated.withUpdatedProfileColor(PeerNameColor(rawValue: settings.larpProfileColor - 1))
         }
+        if let verification = self.larpVerification {
+            updated = TelegramUser(id: updated.id, accessHash: updated.accessHash, firstName: updated.firstName, lastName: updated.lastName, username: updated.username, phone: updated.phone, photo: updated.photo, botInfo: updated.botInfo, restrictionInfo: updated.restrictionInfo, flags: updated.flags, emojiStatus: updated.emojiStatus, usernames: updated.usernames, storiesHidden: updated.storiesHidden, nameColor: updated.nameColor, backgroundEmojiId: updated.backgroundEmojiId, profileColor: updated.profileColor, profileBackgroundEmojiId: updated.profileBackgroundEmojiId, subscriberCount: updated.subscriberCount, verificationIconFileId: verification.iconFileId, linkedCommunityId: updated.linkedCommunityId)
+        }
         return .user(updated)
+    }
+
+    /// The LARP third-party verification of the account: the mark before its name and the line in its profile,
+    /// shown only on this device. Nil when it is off, not loaded yet, or Streamer Mode is on.
+    public var larpVerification: PeerVerification? {
+        let settings = self.settings
+        guard settings.larpVerificationEnabled, settings.larpVerificationIconFileId != 0, !settings.streamerMode else {
+            return nil
+        }
+        return PeerVerification(
+            botId: PeerId(namespace: Namespaces.Peer.CloudUser, id: PeerId.Id._internalFromInt64Value(settings.larpVerificationBotId)),
+            iconFileId: settings.larpVerificationIconFileId,
+            description: settings.larpVerificationDescription,
+            descriptionEntities: []
+        )
     }
 
     public var isStreamerMode: Bool {
@@ -1532,4 +1571,55 @@ func _internal_addCustomLarpUniqueGift(account: Account, gift: StarGift.Gift, mo
         craftChancePermille: nerfDefaultCraftChancePermille
     )
     return _internal_addLarpGift(account: account, peerId: account.peerId, gift: .unique(uniqueGift), text: nil, entities: nil, nameHidden: false)
+}
+
+/// Copies a verification mark into the LARP settings: from a verifier bot, or from an account or chat that
+/// already has the mark. Only what Telegram shows about that username is read; the verifier is not contacted.
+func _internal_loadLarpVerification(account: Account, name: String) -> Signal<Bool, NoError> {
+    return _internal_resolvePeerByName(account: account, name: name, referrer: nil)
+    |> mapToSignal { result -> Signal<PeerId?, NoError> in
+        switch result {
+        case .progress:
+            return .complete()
+        case let .result(peerId):
+            return .single(peerId)
+        }
+    }
+    |> take(1)
+    |> mapToSignal { peerId -> Signal<Bool, NoError> in
+        guard let peerId else {
+            return .single(false)
+        }
+        return _internal_fetchAndUpdateCachedPeerData(accountPeerId: account.peerId, peerId: peerId, network: account.network, postbox: account.postbox)
+        |> mapToSignal { _ -> Signal<Bool, NoError> in
+            return .complete()
+        }
+        |> then(
+            account.postbox.transaction { transaction -> PeerVerification? in
+                let cachedData = transaction.getPeerCachedData(peerId: peerId)
+                if let cachedData = cachedData as? CachedUserData {
+                    if let verifier = cachedData.botInfo?.verifierSettings {
+                        return PeerVerification(botId: peerId, iconFileId: verifier.iconFileId, description: verifier.customDescription ?? "This user was verified by the organization \"\(verifier.companyName)\".", descriptionEntities: [])
+                    }
+                    return cachedData.verification
+                } else if let cachedData = cachedData as? CachedChannelData {
+                    return cachedData.verification
+                }
+                return nil
+            }
+            |> map { verification -> Bool in
+                guard let verification, verification.iconFileId != 0 else {
+                    return false
+                }
+                NerfClient.shared.updateSettings { current in
+                    var current = current
+                    current.larpVerificationIconFileId = verification.iconFileId
+                    current.larpVerificationBotId = verification.botId.id._internalGetInt64Value()
+                    current.larpVerificationDescription = verification.description
+                    return current
+                }
+                return true
+            }
+        )
+    }
 }

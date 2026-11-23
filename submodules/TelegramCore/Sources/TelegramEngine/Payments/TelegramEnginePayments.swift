@@ -34,6 +34,10 @@ public extension TelegramEngine {
             return _internal_clearLarpGifts(account: self.account)
         }
 
+        public func loadLarpVerification(name: String) -> Signal<Bool, NoError> {
+            return _internal_loadLarpVerification(account: self.account, name: name)
+        }
+
         public func getBankCardInfo(cardNumber: String) -> Signal<BankCardInfo?, NoError> {
             return _internal_getBankCardInfo(account: self.account, cardNumber: cardNumber)
         }

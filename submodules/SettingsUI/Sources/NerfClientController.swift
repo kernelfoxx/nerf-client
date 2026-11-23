@@ -28,9 +28,10 @@ private final class NerfClientControllerArguments {
     let updateLarpNumberSetting: (NerfNumberSetting, String) -> Void
     let updateLarpTextSetting: (NerfTextSetting, String) -> Void
     let updateLarpGram: (String) -> Void
+    let loadLarpVerification: () -> Void
     let openMode: (NerfClientMode) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpTextSetting: @escaping (NerfTextSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, openMode: @escaping (NerfClientMode) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpTextSetting: @escaping (NerfTextSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, loadLarpVerification: @escaping () -> Void, openMode: @escaping (NerfClientMode) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -50,6 +51,7 @@ private final class NerfClientControllerArguments {
         self.updateLarpNumberSetting = updateLarpNumberSetting
         self.updateLarpTextSetting = updateLarpTextSetting
         self.updateLarpGram = updateLarpGram
+        self.loadLarpVerification = loadLarpVerification
         self.openMode = openMode
     }
 }
@@ -151,6 +153,7 @@ private enum NerfLarpToggle: Int32 {
     case rating
     case channel
     case gram
+    case verification
 
     var title: String {
         switch self {
@@ -160,6 +163,8 @@ private enum NerfLarpToggle: Int32 {
             return "LARP Channel"
         case .gram:
             return "LARP Gram"
+        case .verification:
+            return "LARP-верификация"
         }
     }
 
@@ -171,6 +176,8 @@ private enum NerfLarpToggle: Int32 {
             return \.larpChannelEnabled
         case .gram:
             return \.larpGramEnabled
+        case .verification:
+            return \.larpVerificationEnabled
         }
     }
 }
@@ -239,9 +246,15 @@ private enum NerfTextSetting: Int32 {
     case additionalUsernames
     case usernamePrice
     case usernamePurchaseDate
+    case verificationSource
+    case verificationDescription
 
     var placeholder: String {
         switch self {
+        case .verificationSource:
+            return "Юзернейм верификатора или аккаунта со значком"
+        case .verificationDescription:
+            return "Текст в профиле"
         case .numberPrice:
             return "Цена +888 на Fragment, TON"
         case .usernamePrice:
@@ -274,6 +287,10 @@ private enum NerfTextSetting: Int32 {
             return \.larpUsernamePrice
         case .usernamePurchaseDate:
             return \.larpUsernamePurchaseDate
+        case .verificationSource:
+            return \.larpVerificationSource
+        case .verificationDescription:
+            return \.larpVerificationDescription
         }
     }
 
@@ -289,6 +306,10 @@ private enum NerfTextSetting: Int32 {
             return 202
         case .usernamePurchaseDate:
             return 203
+        case .verificationSource:
+            return 262
+        case .verificationDescription:
+            return 275
         }
     }
 }
@@ -319,6 +340,7 @@ private enum NerfClientSection: Int32 {
     case larpTon
     case larpNumber
     case larpProfile
+    case larpVerification
     case larpRating
     case larpChannel
     case larpGram
@@ -353,6 +375,9 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpUsernameToggle(Bool)
     case larpUsernameInput(String)
     case larpProfileInfo
+    case larpVerificationHeader
+    case larpVerificationLoad(Bool)
+    case larpVerificationInfo
     case larpGiftListHeader
     case larpGiveGift
     case larpCraft
@@ -389,6 +414,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return NerfClientSection.larpNumber.rawValue
         case .larpProfileHeader, .larpPremiumToggle, .larpUsernameToggle, .larpUsernameInput, .larpProfileInfo:
             return NerfClientSection.larpProfile.rawValue
+        case .larpVerificationHeader, .larpVerificationLoad, .larpVerificationInfo:
+            return NerfClientSection.larpVerification.rawValue
         case .larpRatingHeader, .larpRatingInfo:
             return NerfClientSection.larpRating.rawValue
         case .larpChannelHeader, .larpChannelInfo:
@@ -401,6 +428,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 return NerfClientSection.larpChannel.rawValue
             case .gram:
                 return NerfClientSection.larpGram.rawValue
+            case .verification:
+                return NerfClientSection.larpVerification.rawValue
             }
         case let .larpText(setting, _):
             switch setting {
@@ -408,6 +437,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 return NerfClientSection.larpNumber.rawValue
             case .additionalUsernames, .usernamePrice, .usernamePurchaseDate:
                 return NerfClientSection.larpProfile.rawValue
+            case .verificationSource, .verificationDescription:
+                return NerfClientSection.larpVerification.rawValue
             }
         case let .larpNumber(setting, _):
             switch setting {
@@ -491,6 +522,12 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return 20
         case .larpProfileInfo:
             return 24
+        case .larpVerificationHeader:
+            return 25
+        case .larpVerificationLoad:
+            return 27
+        case .larpVerificationInfo:
+            return 28
         case .larpRatingHeader:
             return 30
         case let .larpToggle(toggle, _):
@@ -501,6 +538,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 return 41
             case .gram:
                 return 61
+            case .verification:
+                return 26
             }
         case let .larpNumber(setting, _):
             switch setting {
@@ -631,6 +670,14 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "LARP-крафт", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.openCraft()
             })
+        case .larpVerificationHeader:
+            return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP-ВЕРИФИКАЦИЯ", sectionId: self.section)
+        case let .larpVerificationLoad(isLoaded):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: isLoaded ? "Обновить значок" : "Загрузить значок", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.loadLarpVerification()
+            })
+        case .larpVerificationInfo:
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Значок сторонней верификации (Major, Hold и другие) перед твоим именем и строка под био в своём профиле. Впиши юзернейм бота-верификатора или любого аккаунта либо канала, у которого уже есть нужный значок, и нажми «Загрузить значок» — значок и текст берутся из Telegram. Видно только на экране этого устройства; настоящей верификации аккаунт не получает."), sectionId: self.section)
         case .larpRatingHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP RATING", sectionId: self.section)
         case .larpChannelHeader:
@@ -780,6 +827,16 @@ private func nerfClientControllerEntries(mode: NerfClientMode, settings: NerfCli
     entries.append(.larpNumber(.nameColor, nerfNumberText(settings, .nameColor)))
     entries.append(.larpNumber(.profileColor, nerfNumberText(settings, .profileColor)))
     entries.append(.larpProfileInfo)
+    entries.append(.larpVerificationHeader)
+    entries.append(.larpToggle(.verification, settings.larpVerificationEnabled))
+    if settings.larpVerificationEnabled {
+        entries.append(.larpText(.verificationSource, settings.larpVerificationSource))
+        entries.append(.larpVerificationLoad(settings.larpVerificationIconFileId != 0))
+        if settings.larpVerificationIconFileId != 0 {
+            entries.append(.larpText(.verificationDescription, settings.larpVerificationDescription))
+        }
+    }
+    entries.append(.larpVerificationInfo)
     entries.append(.larpRatingHeader)
     entries.append(.larpToggle(.rating, settings.larpRatingEnabled))
     if settings.larpRatingEnabled {
@@ -993,6 +1050,23 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
             current.larpGramNano = larpTonNano(text: value)
             return current
         }
+    }, loadLarpVerification: {
+        var name = NerfClient.shared.settings.larpVerificationSource.trimmingCharacters(in: .whitespacesAndNewlines)
+        for prefix in ["https://t.me/", "http://t.me/", "t.me/", "@"] {
+            if name.lowercased().hasPrefix(prefix) {
+                name = String(name.dropFirst(prefix.count))
+                break
+            }
+        }
+        guard !name.isEmpty else {
+            return
+        }
+        let _ = (context.engine.payments.loadLarpVerification(name: name)
+        |> deliverOnMainQueue).start(next: { isLoaded in
+            let presentationData = context.sharedContext.currentPresentationData.with { $0 }
+            let text = isLoaded ? "Значок загружен." : "У @\(name) нет значка сторонней верификации."
+            presentControllerImpl?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
+        })
     }, openMode: { mode in
         pushControllerImpl?(nerfClientController(context: context, mode: mode))
     })

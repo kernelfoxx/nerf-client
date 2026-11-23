@@ -640,7 +640,7 @@ func infoItems(
                     }))
                 }
                                 
-                if let verification = (data.cachedData as? CachedUserData)?.verification {
+                if let verification = (user.id == context.account.peerId ? NerfClient.shared.larpVerification : nil) ?? (data.cachedData as? CachedUserData)?.verification {
                     let attributedPrefix = NSMutableAttributedString(string: "  ")
                     attributedPrefix.addAttribute(ChatTextInputAttributes.customEmoji, value: ChatTextInputTextCustomEmojiAttribute(interactivelySelectedFromPackId: nil, fileId: verification.iconFileId, file: nil), range: NSMakeRange(0, 1))
                     
@@ -663,6 +663,10 @@ func infoItems(
                     }
                 }
             }
+        } else if user.id == context.account.peerId, let verification = NerfClient.shared.larpVerification {
+            let attributedPrefix = NSMutableAttributedString(string: "  ")
+            attributedPrefix.addAttribute(ChatTextInputAttributes.customEmoji, value: ChatTextInputTextCustomEmojiAttribute(interactivelySelectedFromPackId: nil, fileId: verification.iconFileId, file: nil), range: NSMakeRange(0, 1))
+            items[currentPeerInfoSection]!.append(PeerInfoScreenCommentItem(id: ItemVerification, text: verification.description, entities: peerVerificationDescriptionEntities(verification), attributedPrefix: attributedPrefix, useAccentLinkColor: false, linkAction: nil))
         }
     } else if case let .channel(channel) = data.peer {
         let ItemUsername = 1
