@@ -2,6 +2,7 @@ import WalletGiftStickerMediaComponent
 import UIKit
 import Display
 import AccountContext
+import TelegramCore
 import WalletContext
 import WalletCardComponent
 import Vision
