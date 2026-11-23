@@ -1297,7 +1297,7 @@ func nerfLarpValueInfo(slug: String, accountPeerId: EnginePeer.Id? = nil) -> Sta
                 value: value,
                 currency: "USD",
                 initialSaleDate: record.date,
-                initialSaleStars: max(1, value * 100 / 150),
+                initialSaleStars: max(1, value / 3 * 2),
                 initialSalePrice: value,
                 lastSaleDate: nil,
                 lastSalePrice: nil,
