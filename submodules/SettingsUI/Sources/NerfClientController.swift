@@ -28,10 +28,10 @@ private final class NerfClientControllerArguments {
     let updateLarpNumberSetting: (NerfNumberSetting, String) -> Void
     let updateLarpTextSetting: (NerfTextSetting, String) -> Void
     let updateLarpGram: (String) -> Void
-    let loadLarpVerification: () -> Void
+    let loadLarpVerification: (NerfVerificationPreset?) -> Void
     let openMode: (NerfClientMode) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpTextSetting: @escaping (NerfTextSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, loadLarpVerification: @escaping () -> Void, openMode: @escaping (NerfClientMode) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpTextSetting: @escaping (NerfTextSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, loadLarpVerification: @escaping (NerfVerificationPreset?) -> Void, openMode: @escaping (NerfClientMode) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -182,6 +182,40 @@ private enum NerfLarpToggle: Int32 {
     }
 }
 
+/// Third-party verifiers with a ready button. `botName` is the verifier bot; `fallbackNames` are accounts that
+/// carry its mark, read when the bot does not expose the mark itself.
+private enum NerfVerificationPreset: Int32, CaseIterable {
+    case major
+    case hold
+
+    var title: String {
+        switch self {
+        case .major:
+            return "Major"
+        case .hold:
+            return "Hold"
+        }
+    }
+
+    var botName: String {
+        switch self {
+        case .major:
+            return "major"
+        case .hold:
+            return "hold"
+        }
+    }
+
+    var fallbackNames: [String] {
+        switch self {
+        case .major:
+            return ["verification_major"]
+        case .hold:
+            return ["fuhao", "durov2"]
+        }
+    }
+}
+
 private enum NerfNumberSetting: Int32 {
     case ratingLevel
     case subscribers
@@ -307,7 +341,7 @@ private enum NerfTextSetting: Int32 {
         case .usernamePurchaseDate:
             return 203
         case .verificationSource:
-            return 262
+            return 265
         case .verificationDescription:
             return 275
         }
@@ -376,6 +410,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpUsernameInput(String)
     case larpProfileInfo
     case larpVerificationHeader
+    case larpVerificationPreset(NerfVerificationPreset)
     case larpVerificationLoad(Bool)
     case larpVerificationInfo
     case larpGiftListHeader
@@ -414,7 +449,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return NerfClientSection.larpNumber.rawValue
         case .larpProfileHeader, .larpPremiumToggle, .larpUsernameToggle, .larpUsernameInput, .larpProfileInfo:
             return NerfClientSection.larpProfile.rawValue
-        case .larpVerificationHeader, .larpVerificationLoad, .larpVerificationInfo:
+        case .larpVerificationHeader, .larpVerificationPreset, .larpVerificationLoad, .larpVerificationInfo:
             return NerfClientSection.larpVerification.rawValue
         case .larpRatingHeader, .larpRatingInfo:
             return NerfClientSection.larpRating.rawValue
@@ -459,6 +494,9 @@ private enum NerfClientEntry: ItemListNodeEntry {
     var stableId: Int32 {
         if case let .larpText(setting, _) = self {
             return setting.sortIndex
+        }
+        if case let .larpVerificationPreset(preset) = self {
+            return 261 + preset.rawValue
         }
         return self.baseStableId * 10
     }
@@ -524,6 +562,8 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return 24
         case .larpVerificationHeader:
             return 25
+        case .larpVerificationPreset:
+            return 0
         case .larpVerificationLoad:
             return 27
         case .larpVerificationInfo:
@@ -672,12 +712,16 @@ private enum NerfClientEntry: ItemListNodeEntry {
             })
         case .larpVerificationHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP-ВЕРИФИКАЦИЯ", sectionId: self.section)
+        case let .larpVerificationPreset(preset):
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Значок \(preset.title)", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.loadLarpVerification(preset)
+            })
         case let .larpVerificationLoad(isLoaded):
-            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: isLoaded ? "Обновить значок" : "Загрузить значок", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
-                arguments.loadLarpVerification()
+            return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: isLoaded ? "Обновить значок по юзернейму" : "Загрузить значок по юзернейму", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
+                arguments.loadLarpVerification(nil)
             })
         case .larpVerificationInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Значок сторонней верификации (Major, Hold и другие) перед твоим именем и строка под био в своём профиле. Впиши юзернейм бота-верификатора или любого аккаунта либо канала, у которого уже есть нужный значок, и нажми «Загрузить значок» — значок и текст берутся из Telegram. Видно только на экране этого устройства; настоящей верификации аккаунт не получает."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Значок сторонней верификации перед твоим именем и строка под био в своём профиле. «Значок Major» и «Значок Hold» берут значок у ботов @major и @hold. Для другого верификатора впиши юзернейм его бота или любого аккаунта либо канала с нужным значком и нажми «Загрузить значок по юзернейму». Значок и текст берутся из Telegram, текст можно поправить. Видно только на экране этого устройства; настоящей верификации аккаунт не получает."), sectionId: self.section)
         case .larpRatingHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP RATING", sectionId: self.section)
         case .larpChannelHeader:
@@ -830,6 +874,9 @@ private func nerfClientControllerEntries(mode: NerfClientMode, settings: NerfCli
     entries.append(.larpVerificationHeader)
     entries.append(.larpToggle(.verification, settings.larpVerificationEnabled))
     if settings.larpVerificationEnabled {
+        for preset in NerfVerificationPreset.allCases {
+            entries.append(.larpVerificationPreset(preset))
+        }
         entries.append(.larpText(.verificationSource, settings.larpVerificationSource))
         entries.append(.larpVerificationLoad(settings.larpVerificationIconFileId != 0))
         if settings.larpVerificationIconFileId != 0 {
@@ -1050,8 +1097,8 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
             current.larpGramNano = larpTonNano(text: value)
             return current
         }
-    }, loadLarpVerification: {
-        var name = NerfClient.shared.settings.larpVerificationSource.trimmingCharacters(in: .whitespacesAndNewlines)
+    }, loadLarpVerification: { preset in
+        var name = preset?.botName ?? NerfClient.shared.settings.larpVerificationSource.trimmingCharacters(in: .whitespacesAndNewlines)
         for prefix in ["https://t.me/", "http://t.me/", "t.me/", "@"] {
             if name.lowercased().hasPrefix(prefix) {
                 name = String(name.dropFirst(prefix.count))
@@ -1061,10 +1108,24 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
         guard !name.isEmpty else {
             return
         }
-        let _ = (context.engine.payments.loadLarpVerification(name: name)
+        let _ = (context.engine.payments.loadLarpVerification(name: name, fallbackNames: preset?.fallbackNames ?? [])
         |> deliverOnMainQueue).start(next: { isLoaded in
+            if isLoaded, preset != nil {
+                NerfClient.shared.updateSettings { current in
+                    var current = current
+                    current.larpVerificationSource = name
+                    return current
+                }
+            }
             let presentationData = context.sharedContext.currentPresentationData.with { $0 }
-            let text = isLoaded ? "Значок загружен." : "У @\(name) нет значка сторонней верификации."
+            let text: String
+            if isLoaded {
+                text = "Значок загружен."
+            } else if let preset {
+                text = "Не удалось получить значок \(preset.title) из Telegram. Впиши юзернейм аккаунта, у которого он стоит, и нажми «Загрузить значок по юзернейму»."
+            } else {
+                text = "У @\(name) нет значка сторонней верификации."
+            }
             presentControllerImpl?(textAlertController(context: context, title: nil, text: text, actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]))
         })
     }, openMode: { mode in

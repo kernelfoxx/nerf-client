@@ -1573,9 +1573,7 @@ func _internal_addCustomLarpUniqueGift(account: Account, gift: StarGift.Gift, mo
     return _internal_addLarpGift(account: account, peerId: account.peerId, gift: .unique(uniqueGift), text: nil, entities: nil, nameHidden: false)
 }
 
-/// Copies a verification mark into the LARP settings: from a verifier bot, or from an account or chat that
-/// already has the mark. Only what Telegram shows about that username is read; the verifier is not contacted.
-func _internal_loadLarpVerification(account: Account, name: String) -> Signal<Bool, NoError> {
+private func nerfLoadPeerVerification(account: Account, name: String) -> Signal<(peerId: PeerId?, verification: PeerVerification?), NoError> {
     return _internal_resolvePeerByName(account: account, name: name, referrer: nil)
     |> mapToSignal { result -> Signal<PeerId?, NoError> in
         switch result {
@@ -1586,40 +1584,81 @@ func _internal_loadLarpVerification(account: Account, name: String) -> Signal<Bo
         }
     }
     |> take(1)
-    |> mapToSignal { peerId -> Signal<Bool, NoError> in
+    |> mapToSignal { peerId -> Signal<(peerId: PeerId?, verification: PeerVerification?), NoError> in
         guard let peerId else {
-            return .single(false)
+            return .single((nil, nil))
         }
         return _internal_fetchAndUpdateCachedPeerData(accountPeerId: account.peerId, peerId: peerId, network: account.network, postbox: account.postbox)
-        |> mapToSignal { _ -> Signal<Bool, NoError> in
+        |> mapToSignal { _ -> Signal<(peerId: PeerId?, verification: PeerVerification?), NoError> in
             return .complete()
         }
         |> then(
-            account.postbox.transaction { transaction -> PeerVerification? in
+            account.postbox.transaction { transaction -> (peerId: PeerId?, verification: PeerVerification?) in
+                var verification: PeerVerification?
                 let cachedData = transaction.getPeerCachedData(peerId: peerId)
                 if let cachedData = cachedData as? CachedUserData {
                     if let verifier = cachedData.botInfo?.verifierSettings {
-                        return PeerVerification(botId: peerId, iconFileId: verifier.iconFileId, description: verifier.customDescription ?? "This user was verified by the organization \"\(verifier.companyName)\".", descriptionEntities: [])
+                        verification = PeerVerification(botId: peerId, iconFileId: verifier.iconFileId, description: verifier.customDescription ?? "This user was verified by the organization \"\(verifier.companyName)\".", descriptionEntities: [])
+                    } else {
+                        verification = cachedData.verification
                     }
-                    return cachedData.verification
                 } else if let cachedData = cachedData as? CachedChannelData {
-                    return cachedData.verification
+                    verification = cachedData.verification
                 }
-                return nil
-            }
-            |> map { verification -> Bool in
-                guard let verification, verification.iconFileId != 0 else {
-                    return false
+                if let current = verification, current.iconFileId == 0 {
+                    verification = nil
                 }
-                NerfClient.shared.updateSettings { current in
-                    var current = current
-                    current.larpVerificationIconFileId = verification.iconFileId
-                    current.larpVerificationBotId = verification.botId.id._internalGetInt64Value()
-                    current.larpVerificationDescription = verification.description
-                    return current
-                }
-                return true
+                return (peerId, verification)
             }
         )
+    }
+}
+
+/// Copies a verification mark into the LARP settings: from the verifier bot `name`, or from an account or chat
+/// that already has a mark. When the verifier bot does not expose its mark, `fallbackNames` are tried in order
+/// and only a mark issued by that bot is taken. Only what Telegram shows about these usernames is read; the
+/// verifier is not contacted.
+func _internal_loadLarpVerification(account: Account, name: String, fallbackNames: [String]) -> Signal<Bool, NoError> {
+    let store: (PeerVerification?) -> Bool = { verification in
+        guard let verification else {
+            return false
+        }
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpVerificationIconFileId = verification.iconFileId
+            current.larpVerificationBotId = verification.botId.id._internalGetInt64Value()
+            current.larpVerificationDescription = verification.description
+            return current
+        }
+        return true
+    }
+    return nerfLoadPeerVerification(account: account, name: name)
+    |> mapToSignal { result -> Signal<Bool, NoError> in
+        if result.verification != nil {
+            return .single(store(result.verification))
+        }
+        guard let verifierId = result.peerId, !fallbackNames.isEmpty else {
+            return .single(false)
+        }
+        var found: Signal<PeerVerification?, NoError> = .single(nil)
+        for fallbackName in fallbackNames {
+            found = found
+            |> mapToSignal { verification -> Signal<PeerVerification?, NoError> in
+                if let verification {
+                    return .single(verification)
+                }
+                return nerfLoadPeerVerification(account: account, name: fallbackName)
+                |> map { result -> PeerVerification? in
+                    if let verification = result.verification, verification.botId == verifierId {
+                        return verification
+                    }
+                    return nil
+                }
+            }
+        }
+        return found
+        |> map { verification -> Bool in
+            return store(verification)
+        }
     }
 }
