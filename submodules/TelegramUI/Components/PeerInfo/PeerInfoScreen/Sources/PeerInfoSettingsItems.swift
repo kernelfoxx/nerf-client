@@ -76,7 +76,7 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
         interaction.openSettings(.avatar)
     }))
     
-    if let peer = data.peer, (peer.addressName ?? "").isEmpty {
+    if let peer = data.peer, (peer.addressName ?? "").isEmpty, NerfClient.shared.larpUsername == nil {
         items[.edit]!.append(PeerInfoScreenActionItem(id: 3, text: presentationData.strings.Settings_SetUsername, icon: UIImage(bundleImageName: "Settings/SetUsername"), action: {
             interaction.openSettings(.username)
         }))
@@ -490,7 +490,13 @@ func settingsEditingItems(data: PeerInfoScreenData?, state: PeerInfoState, conte
         }))
     }
     var username = ""
-    if let addressName = data.peer?.addressName, !addressName.isEmpty {
+    if NerfClient.shared.isStreamerMode {
+        // Nerf Client: Streamer Mode hides your own username here as it does in the profile.
+        username = NerfClient.streamerMask
+    } else if let larpUsername = NerfClient.shared.larpUsername {
+        // Nerf Client: the LARP username, as shown in the header above.
+        username = "@\(larpUsername)"
+    } else if let addressName = data.peer?.addressName, !addressName.isEmpty {
         username = "@\(addressName)"
     }
     items[.info]!.append(PeerInfoScreenDisclosureItem(id: ItemUsername, label: .text(username), text: presentationData.strings.Settings_Username, icon: PresentationResourcesSettings.email, action: {

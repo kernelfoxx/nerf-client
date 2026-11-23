@@ -53,6 +53,14 @@ public final class NerfClient {
         public var larpPremiumSince: Int32 = 0
         public var larpUsernameEnabled: Bool = false
         public var larpUsername: String = ""
+        /// More usernames shown under the main one, separated by spaces or commas.
+        public var larpAdditionalUsernames: String = ""
+        /// The Fragment price in TON as typed; empty means the item is not a collectible.
+        public var larpUsernamePrice: String = ""
+        /// The Fragment purchase date as typed (DD.MM.YYYY); empty means today.
+        public var larpUsernamePurchaseDate: String = ""
+        public var larpNumberPrice: String = ""
+        public var larpNumberPurchaseDate: String = ""
 
         public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64, streamerMode: Bool, showUserId: Bool) {
             self.larpGiftsEnabled = larpGiftsEnabled
@@ -184,6 +192,11 @@ public final class NerfClient {
         static let larpPremiumSince = "nerf.larpPremiumSince"
         static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
         static let larpUsername = "nerf.larpUsername"
+        static let larpAdditionalUsernames = "nerf.larpAdditionalUsernames"
+        static let larpUsernamePrice = "nerf.larpUsernamePrice"
+        static let larpUsernamePurchaseDate = "nerf.larpUsernamePurchaseDate"
+        static let larpNumberPrice = "nerf.larpNumberPrice"
+        static let larpNumberPurchaseDate = "nerf.larpNumberPurchaseDate"
     }
 
     private let defaults = UserDefaults.standard
@@ -235,6 +248,11 @@ public final class NerfClient {
         settingsValue.larpPremiumSince = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumSince))
         settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
         settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
+        settingsValue.larpAdditionalUsernames = defaults.string(forKey: Keys.larpAdditionalUsernames) ?? ""
+        settingsValue.larpUsernamePrice = defaults.string(forKey: Keys.larpUsernamePrice) ?? ""
+        settingsValue.larpUsernamePurchaseDate = defaults.string(forKey: Keys.larpUsernamePurchaseDate) ?? ""
+        settingsValue.larpNumberPrice = defaults.string(forKey: Keys.larpNumberPrice) ?? ""
+        settingsValue.larpNumberPurchaseDate = defaults.string(forKey: Keys.larpNumberPurchaseDate) ?? ""
         var larpGifts: [LarpGift] = []
         if let data = defaults.data(forKey: Keys.larpGifts), let value = try? AdaptedPostboxDecoder().decode(StoredLarpGifts.self, from: data) {
             larpGifts = value.gifts
@@ -298,6 +316,11 @@ public final class NerfClient {
         self.defaults.set(Int(updated.larpPremiumSince), forKey: Keys.larpPremiumSince)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
+        self.defaults.set(updated.larpAdditionalUsernames, forKey: Keys.larpAdditionalUsernames)
+        self.defaults.set(updated.larpUsernamePrice, forKey: Keys.larpUsernamePrice)
+        self.defaults.set(updated.larpUsernamePurchaseDate, forKey: Keys.larpUsernamePurchaseDate)
+        self.defaults.set(updated.larpNumberPrice, forKey: Keys.larpNumberPrice)
+        self.defaults.set(updated.larpNumberPurchaseDate, forKey: Keys.larpNumberPurchaseDate)
         self.settingsPromise.set(updated)
     }
 
@@ -313,8 +336,9 @@ public final class NerfClient {
         guard settings.larpPremium, settings.larpPremiumMonths > 0 else {
             return nil
         }
-        let (until, overflow) = settings.larpPremiumSince.addingReportingOverflow(settings.larpPremiumMonths.multipliedReportingOverflow(by: 30 * 24 * 60 * 60).partialValue)
-        return overflow ? Int32.max : until
+        let (duration, durationOverflow) = settings.larpPremiumMonths.multipliedReportingOverflow(by: 30 * 24 * 60 * 60)
+        let (until, overflow) = settings.larpPremiumSince.addingReportingOverflow(duration)
+        return durationOverflow || overflow ? Int32.max : until
     }
 
     /// The account as its own profile header shows it: with the worn LARP gift (which also gives
@@ -380,9 +404,11 @@ public final class NerfClient {
         self.updateSettings { current in
             var current = current
             if ton, current.larpTonEnabled {
-                current.larpTonNano += amount
+                let (sum, overflow) = current.larpTonNano.addingReportingOverflow(amount)
+                current.larpTonNano = overflow ? Int64.max : sum
             } else if !ton, current.larpStarsEnabled {
-                current.larpStars += amount
+                let (sum, overflow) = current.larpStars.addingReportingOverflow(amount)
+                current.larpStars = overflow ? Int64.max : sum
             }
             return current
         }
@@ -406,6 +432,114 @@ public final class NerfClient {
             return username
         }
         return nil
+    }
+
+    /// The extra LARP usernames (without "@") listed under the main one.
+    public var larpAdditionalUsernames: [String] {
+        guard let mainUsername = self.larpUsername else {
+            return []
+        }
+        var result: [String] = []
+        for part in self.settings.larpAdditionalUsernames.components(separatedBy: CharacterSet(charactersIn: " ,;@\n")) {
+            if !part.isEmpty, part.lowercased() != mainUsername.lowercased(), !result.contains(where: { $0.lowercased() == part.lowercased() }) {
+                result.append(part)
+            }
+        }
+        return result
+    }
+
+    /// The Fragment info of a LARP username that has a price, or nil when it is not a LARP collectible.
+    public func larpCollectibleInfo(username: String, tonUsdRate: Double) -> TelegramCollectibleItemInfo? {
+        guard !self.isStreamerMode, let mainUsername = self.larpUsername else {
+            return nil
+        }
+        let name = username.lowercased()
+        guard name == mainUsername.lowercased() || self.larpAdditionalUsernames.contains(where: { $0.lowercased() == name }) else {
+            return nil
+        }
+        let settings = self.settings
+        return NerfClient.larpCollectibleInfo(subject: .username(username), price: settings.larpUsernamePrice, purchaseDate: settings.larpUsernamePurchaseDate, tonUsdRate: tonUsdRate, url: "https://fragment.com/username/\(name)")
+    }
+
+    /// The Fragment info of the +888 LARP number when it has a price, or nil.
+    public func larpCollectibleInfo(phoneNumber: String, tonUsdRate: Double) -> TelegramCollectibleItemInfo? {
+        guard !self.isStreamerMode, let larpNumber = self.larpNumber else {
+            return nil
+        }
+        let digits = phoneNumber.filter { $0.isASCII && $0.isNumber }
+        guard digits.hasPrefix("888"), digits == larpNumber.filter({ $0.isASCII && $0.isNumber }) else {
+            return nil
+        }
+        let settings = self.settings
+        return NerfClient.larpCollectibleInfo(subject: .phoneNumber(phoneNumber), price: settings.larpNumberPrice, purchaseDate: settings.larpNumberPurchaseDate, tonUsdRate: tonUsdRate, url: "https://fragment.com/number/\(digits)")
+    }
+
+    private static func larpCollectibleInfo(subject: TelegramCollectibleItemInfo.Subject, price: String, purchaseDate: String, tonUsdRate: Double, url: String) -> TelegramCollectibleItemInfo? {
+        let nano = NerfClient.nanotons(text: price)
+        guard nano > 0 else {
+            return nil
+        }
+        let usdCents = Double(nano) / 1_000_000_000.0 * tonUsdRate * 100.0
+        return TelegramCollectibleItemInfo(
+            subject: subject,
+            purchaseDate: NerfClient.timestamp(dateText: purchaseDate) ?? Int32(Date().timeIntervalSince1970),
+            currency: "USD",
+            currencyAmount: usdCents.isFinite && usdCents < Double(Int64.max) ? Int64(max(0.0, usdCents)) : Int64.max,
+            cryptoCurrency: "TON",
+            cryptoCurrencyAmount: nano,
+            url: url
+        )
+    }
+
+    /// Parses a typed TON amount ("1 250,5") into nanotons, saturating instead of overflowing.
+    public static func nanotons(text: String) -> Int64 {
+        let normalized = text.replacingOccurrences(of: ",", with: ".").filter { ($0.isASCII && $0.isNumber) || $0 == "." }
+        let parts = normalized.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let integerText = parts.first else {
+            return 0
+        }
+        let integer: Int64
+        if integerText.isEmpty {
+            integer = 0
+        } else if let value = Int64(integerText) {
+            integer = value
+        } else {
+            return Int64.max
+        }
+        var fractionText = parts.count > 1 ? String(parts[1].filter { $0 != "." }.prefix(9)) : ""
+        fractionText += String(repeating: "0", count: 9 - fractionText.count)
+        let fraction = Int64(fractionText) ?? 0
+        let (product, multiplyOverflow) = integer.multipliedReportingOverflow(by: 1_000_000_000)
+        if multiplyOverflow {
+            return Int64.max
+        }
+        let (sum, addOverflow) = product.addingReportingOverflow(fraction)
+        return addOverflow ? Int64.max : sum
+    }
+
+    /// Parses "DD.MM.YYYY" (also with "/" or "-") into a timestamp at noon, or nil when it is not a past date.
+    public static func timestamp(dateText: String) -> Int32? {
+        let parts = dateText.components(separatedBy: CharacterSet(charactersIn: "./- ")).filter { !$0.isEmpty }
+        guard parts.count == 3, let day = Int(parts[0]), let month = Int(parts[1]), var year = Int(parts[2]) else {
+            return nil
+        }
+        if year < 100 {
+            year += 2000
+        }
+        guard (1 ... 31).contains(day), (1 ... 12).contains(month), (2013 ... 2037).contains(year) else {
+            return nil
+        }
+        var components = DateComponents()
+        components.day = day
+        components.month = month
+        components.year = year
+        components.hour = 12
+        let calendar = Calendar(identifier: .gregorian)
+        guard let date = calendar.date(from: components), calendar.component(.day, from: date) == day else {
+            return nil
+        }
+        let now = Date()
+        return Int32(min(date, now).timeIntervalSince1970)
     }
 
     /// The LARP star rating to show in the account's own profile, or nil when it is off.

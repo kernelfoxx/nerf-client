@@ -206,10 +206,22 @@ func infoItems(
         if user.id == context.account.peerId, NerfClient.shared.isStreamerMode {
             // Nerf Client: Streamer Mode hides your own username.
         } else if user.id == context.account.peerId, let larpUsername = NerfClient.shared.larpUsername {
-            // Nerf Client: LARP username in place of the real one.
-            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername)", textColor: .accent, action: { _, progress in
-                // A collectible username opens its Fragment page; any other one, its share sheet.
-                interaction.openUsername(larpUsername, false, progress)
+            // Nerf Client: LARP usernames in place of the real ones. Like a real one, the main username
+            // opens its share sheet and the others their Fragment info, both of which carry the LARP
+            // Fragment details when a price is set.
+            var additionalUsernames: String?
+            let usernames = NerfClient.shared.larpAdditionalUsernames
+            if !usernames.isEmpty {
+                additionalUsernames = presentationData.strings.Profile_AdditionalUsernames(String(usernames.map { "@\($0)" }.joined(separator: ", "))).string
+            }
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername)", additionalText: additionalUsernames, textColor: .accent, action: { _, progress in
+                interaction.openUsername(larpUsername, true, progress)
+            }, linkItemAction: { type, item, _, _, progress in
+                if case .tap = type {
+                    if case let .mention(username) = item {
+                        interaction.openUsername(String(username[username.index(username.startIndex, offsetBy: 1)...]), false, progress)
+                    }
+                }
             }, requestLayout: { animated in
                 interaction.requestLayout(animated)
             }))

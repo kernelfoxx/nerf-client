@@ -712,6 +712,31 @@ public class CollectibleItemInfoScreen: ViewControllerComponentContainer {
     }
     
     public static func initialData(context: AccountContext, peerId: EnginePeer.Id, subject: CollectibleItemInfoScreenSubject) -> Signal<CollectibleItemInfoScreenInitialData?, NoError> {
+        // Nerf Client: a LARP username or +888 number with a price has its Fragment details on this device.
+        if peerId == context.account.peerId {
+            let tonUsdRate = StarsSubscriptionConfiguration.with(appConfiguration: context.currentAppConfiguration.with { $0 }).tonUsdRate
+            let larpInfo: TelegramCollectibleItemInfo?
+            switch subject {
+            case let .username(username):
+                larpInfo = NerfClient.shared.larpCollectibleInfo(username: username, tonUsdRate: tonUsdRate)
+            case let .phoneNumber(phoneNumber):
+                larpInfo = NerfClient.shared.larpCollectibleInfo(phoneNumber: phoneNumber, tonUsdRate: tonUsdRate)
+            }
+            if let larpInfo {
+                return context.engine.data.get(
+                    TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)
+                )
+                |> map { peer -> CollectibleItemInfoScreenInitialData? in
+                    switch subject {
+                    case let .username(username):
+                        return InitialData(peer: peer, subject: .username(ResolvedSubject.Username(username: username, info: larpInfo)))
+                    case let .phoneNumber(phoneNumber):
+                        return InitialData(peer: peer, subject: .phoneNumber(ResolvedSubject.PhoneNumber(phoneNumber: phoneNumber, info: larpInfo)))
+                    }
+                }
+            }
+        }
+        
         switch subject {
         case let .username(username):
             return combineLatest(

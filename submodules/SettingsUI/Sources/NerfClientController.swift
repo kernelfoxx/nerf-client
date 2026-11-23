@@ -26,10 +26,11 @@ private final class NerfClientControllerArguments {
     let openCraft: () -> Void
     let updateLarpToggle: (NerfLarpToggle, Bool) -> Void
     let updateLarpNumberSetting: (NerfNumberSetting, String) -> Void
+    let updateLarpTextSetting: (NerfTextSetting, String) -> Void
     let updateLarpGram: (String) -> Void
     let openMode: (NerfClientMode) -> Void
 
-    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, openMode: @escaping (NerfClientMode) -> Void) {
+    init(updateLarpGiftsEnabled: @escaping (Bool) -> Void, clearLarpGifts: @escaping () -> Void, updateLarpNumberEnabled: @escaping (Bool) -> Void, updateLarpNumber: @escaping (String) -> Void, updateLarpStarsEnabled: @escaping (Bool) -> Void, updateLarpStars: @escaping (String) -> Void, updateLarpTonEnabled: @escaping (Bool) -> Void, updateLarpTon: @escaping (String) -> Void, updateFeature: @escaping (NerfFeature, Bool) -> Void, updateLarpPremium: @escaping (Bool) -> Void, updateLarpUsernameEnabled: @escaping (Bool) -> Void, updateLarpUsername: @escaping (String) -> Void, openLarpGift: @escaping (NerfLarpGiftRow) -> Void, openGiveGift: @escaping () -> Void, openCraft: @escaping () -> Void, updateLarpToggle: @escaping (NerfLarpToggle, Bool) -> Void, updateLarpNumberSetting: @escaping (NerfNumberSetting, String) -> Void, updateLarpTextSetting: @escaping (NerfTextSetting, String) -> Void, updateLarpGram: @escaping (String) -> Void, openMode: @escaping (NerfClientMode) -> Void) {
         self.updateLarpGiftsEnabled = updateLarpGiftsEnabled
         self.clearLarpGifts = clearLarpGifts
         self.updateLarpNumberEnabled = updateLarpNumberEnabled
@@ -47,6 +48,7 @@ private final class NerfClientControllerArguments {
         self.openCraft = openCraft
         self.updateLarpToggle = updateLarpToggle
         self.updateLarpNumberSetting = updateLarpNumberSetting
+        self.updateLarpTextSetting = updateLarpTextSetting
         self.updateLarpGram = updateLarpGram
         self.openMode = openMode
     }
@@ -230,6 +232,67 @@ private enum NerfNumberSetting: Int32 {
     }
 }
 
+/// Free-text LARP settings: the Fragment details of the +888 number and of the username.
+private enum NerfTextSetting: Int32 {
+    case numberPrice
+    case numberPurchaseDate
+    case additionalUsernames
+    case usernamePrice
+    case usernamePurchaseDate
+
+    var placeholder: String {
+        switch self {
+        case .numberPrice:
+            return "Цена +888 на Fragment, TON"
+        case .usernamePrice:
+            return "Цена на Fragment, TON (коллекционный)"
+        case .numberPurchaseDate, .usernamePurchaseDate:
+            return "Дата покупки ДД.ММ.ГГГГ"
+        case .additionalUsernames:
+            return "Ещё юзернеймы через пробел"
+        }
+    }
+
+    var isDecimal: Bool {
+        switch self {
+        case .numberPrice, .usernamePrice:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var keyPath: WritableKeyPath<NerfClient.Settings, String> {
+        switch self {
+        case .numberPrice:
+            return \.larpNumberPrice
+        case .numberPurchaseDate:
+            return \.larpNumberPurchaseDate
+        case .additionalUsernames:
+            return \.larpAdditionalUsernames
+        case .usernamePrice:
+            return \.larpUsernamePrice
+        case .usernamePurchaseDate:
+            return \.larpUsernamePurchaseDate
+        }
+    }
+
+    var sortIndex: Int32 {
+        switch self {
+        case .numberPrice:
+            return 141
+        case .numberPurchaseDate:
+            return 142
+        case .additionalUsernames:
+            return 201
+        case .usernamePrice:
+            return 202
+        case .usernamePurchaseDate:
+            return 203
+        }
+    }
+}
+
 private struct NerfLarpGiftRow: Equatable {
     let peerId: EnginePeer.Id
     let localMessageId: Int32
@@ -296,6 +359,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
     case larpRatingHeader
     case larpToggle(NerfLarpToggle, Bool)
     case larpNumber(NerfNumberSetting, String)
+    case larpText(NerfTextSetting, String)
     case larpRatingInfo
     case larpChannelHeader
     case larpChannelInfo
@@ -338,6 +402,13 @@ private enum NerfClientEntry: ItemListNodeEntry {
             case .gram:
                 return NerfClientSection.larpGram.rawValue
             }
+        case let .larpText(setting, _):
+            switch setting {
+            case .numberPrice, .numberPurchaseDate:
+                return NerfClientSection.larpNumber.rawValue
+            case .additionalUsernames, .usernamePrice, .usernamePurchaseDate:
+                return NerfClientSection.larpProfile.rawValue
+            }
         case let .larpNumber(setting, _):
             switch setting {
             case .ratingLevel:
@@ -355,7 +426,17 @@ private enum NerfClientEntry: ItemListNodeEntry {
     }
 
     var stableId: Int32 {
+        if case let .larpText(setting, _) = self {
+            return setting.sortIndex
+        }
+        return self.baseStableId * 10
+    }
+
+    /// Positions in tens leave room for the text settings that sit between two older rows.
+    private var baseStableId: Int32 {
         switch self {
+        case .larpText:
+            return 0
         case .rootLarp:
             return -1000
         case .rootFeatures:
@@ -495,7 +576,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 arguments.clearLarpGifts()
             })
         case .larpGiftInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Обычные гифты и гифты с маркета не отправляются и не покупаются, настоящие звёзды и TON не списываются. Если баланса не хватает, гифт не отправится. С включёнными LARP Stars / LARP TON цена списывается с LARP-баланса. Гифт появляется только у тебя, в чате и в профиле получателя, и всегда с пометкой LARP."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Обычные гифты и гифты с маркета не отправляются и не покупаются, настоящие звёзды и TON не списываются. Если баланса не хватает, гифт не отправится. С включёнными LARP Stars / LARP TON цена списывается с LARP-баланса. Гифт появляется только у тебя, в чате и в профиле получателя."), sectionId: self.section)
         case .larpStarsHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP STARS", sectionId: self.section)
         case let .larpStarsToggle(value):
@@ -507,7 +588,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 arguments.updateLarpStars(value)
             }, action: {})
         case .larpStarsInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс звёзд подменяется только на экране этого устройства, рядом с ним всегда стоит LARP. Им можно платить только за LARP-гифты."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс звёзд подменяется только на экране этого устройства. Им можно платить только за LARP-гифты."), sectionId: self.section)
         case .larpTonHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP TON", sectionId: self.section)
         case let .larpTonToggle(value):
@@ -519,7 +600,7 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 arguments.updateLarpTon(value)
             }, action: {})
         case .larpTonInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс TON подменяется только на экране этого устройства, рядом с ним всегда стоит LARP. Им можно платить только за LARP-гифты с маркета."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс TON подменяется только на экране этого устройства. Им можно платить только за LARP-гифты с маркета."), sectionId: self.section)
         case .larpNumberHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP CUSTOM NUMBER", sectionId: self.section)
         case let .larpNumberToggle(value):
@@ -558,12 +639,16 @@ private enum NerfClientEntry: ItemListNodeEntry {
             return ItemListSwitchItem(presentationData: presentationData, systemStyle: .glass, title: toggle.title, value: value, sectionId: self.section, style: .blocks, updated: { value in
                 arguments.updateLarpToggle(toggle, value)
             })
+        case let .larpText(setting, text):
+            return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(), text: text, placeholder: setting.placeholder, type: setting.isDecimal ? .decimal : .regular(capitalization: false, autocorrection: false), sectionId: self.section, textUpdated: { value in
+                arguments.updateLarpTextSetting(setting, value)
+            }, action: {})
         case let .larpNumber(setting, text):
             return ItemListSingleLineInputItem(presentationData: presentationData, systemStyle: .glass, title: NSAttributedString(), text: text, placeholder: setting.placeholder, type: .number, sectionId: self.section, textUpdated: { value in
                 arguments.updateLarpNumberSetting(setting, value)
             }, action: {})
         case .larpRatingInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Звёздный уровень в твоём профиле, только на этом устройстве. В настройках рядом всегда стоит «Ур. N LARP»."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Звёздный уровень в твоём профиле, только на этом устройстве."), sectionId: self.section)
         case .larpGramHeader:
             return ItemListSectionHeaderItem(presentationData: presentationData, text: "LARP GRAM", sectionId: self.section)
         case let .larpGramInput(text):
@@ -571,9 +656,9 @@ private enum NerfClientEntry: ItemListNodeEntry {
                 arguments.updateLarpGram(value)
             }, action: {})
         case .larpGramInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс в кошельке Gram подменяется только на экране этого устройства, на карточке кошелька стоит LARP. Переводы считаются по настоящему балансу."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Баланс в кошельке Gram подменяется только на экране этого устройства. Переводы считаются по настоящему балансу."), sectionId: self.section)
         case .larpChannelInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Для каналов, которые ты создал: число подписчиков (всегда с пометкой LARP), просмотры постов (умножаются) и уровень бустов. Только на этом устройстве."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Для каналов, которые ты создал: число подписчиков, просмотры постов (умножаются) и уровень бустов. Только на этом устройстве."), sectionId: self.section)
         case .larpGiveGift:
             return ItemListActionItem(presentationData: presentationData, systemStyle: .glass, title: "Выдать гифт", kind: .generic, alignment: .natural, sectionId: self.section, style: .blocks, action: {
                 arguments.openGiveGift()
@@ -585,9 +670,9 @@ private enum NerfClientEntry: ItemListNodeEntry {
         case .larpGiftListInfo:
             return ItemListTextItem(presentationData: presentationData, text: .plain("«Выдать гифт» добавляет гифт в твой профиль. Нажми на улучшенный гифт, чтобы выставить его на LARP-продажу или указать ценность. Нажми на обычный гифт в списке, чтобы сделать LARP-улучшение: модель, фон и узор выбираются из настоящих вариантов улучшения этого гифта. Цена гифта и улучшения списывается так же, как при LARP-отправке. Гифты в профиле видны, пока включён LARP Send Gift."), sectionId: self.section)
         case .larpProfileInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Значок Premium и юзернейм подменяются только на экране этого устройства, в настройках и твоём профиле, и всегда с пометкой LARP. Настоящий аккаунт не меняется."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Значок Premium и юзернейм подменяются только на экране этого устройства, в настройках и твоём профиле. Настоящий аккаунт не меняется. Если указать цену, юзернейм считается коллекционным: по нажатию открывается его карточка Fragment с этой ценой и датой покупки (без даты — сегодня)."), sectionId: self.section)
         case .larpNumberInfo:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Номер подменяется только на экране этого устройства, справа от него всегда стоит LARP. Настоящий номер в аккаунте не меняется."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Номер подменяется только на экране этого устройства. Настоящий номер в аккаунте не меняется. Номер на +888 показывается как анонимный; если указать цену, по нажатию открывается его карточка Fragment с этой ценой и датой покупки (без даты — сегодня)."), sectionId: self.section)
         }
     }
 }
@@ -614,14 +699,7 @@ private func larpTonText(nano: Int64) -> String {
 }
 
 private func larpTonNano(text: String) -> Int64 {
-    let normalized = text.replacingOccurrences(of: ",", with: ".").filter { $0.isNumber || $0 == "." }
-    let parts = normalized.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
-    let integer = Int64(parts.first.flatMap { String($0) } ?? "") ?? 0
-    var fractionText = parts.count > 1 ? String(parts[1].prefix(9)) : ""
-    fractionText += String(repeating: "0", count: 9 - fractionText.count)
-    let fraction = Int64(fractionText) ?? 0
-    let (product, overflow) = integer.multipliedReportingOverflow(by: nanotonsPerTon)
-    return overflow ? Int64.max : product + fraction
+    return NerfClient.nanotons(text: text)
 }
 
 private func nerfClientTitle(_ mode: NerfClientMode) -> String {
@@ -681,6 +759,10 @@ private func nerfClientControllerEntries(mode: NerfClientMode, settings: NerfCli
     entries.append(.larpNumberToggle(settings.larpNumberEnabled))
     if settings.larpNumberEnabled {
         entries.append(.larpNumberInput(settings.larpNumber))
+        if settings.larpNumber.filter({ $0.isASCII && $0.isNumber }).hasPrefix("888") {
+            entries.append(.larpText(.numberPrice, settings.larpNumberPrice))
+            entries.append(.larpText(.numberPurchaseDate, settings.larpNumberPurchaseDate))
+        }
     }
     entries.append(.larpNumberInfo)
     entries.append(.larpProfileHeader)
@@ -691,6 +773,9 @@ private func nerfClientControllerEntries(mode: NerfClientMode, settings: NerfCli
     entries.append(.larpUsernameToggle(settings.larpUsernameEnabled))
     if settings.larpUsernameEnabled {
         entries.append(.larpUsernameInput(settings.larpUsername))
+        entries.append(.larpText(.additionalUsernames, settings.larpAdditionalUsernames))
+        entries.append(.larpText(.usernamePrice, settings.larpUsernamePrice))
+        entries.append(.larpText(.usernamePurchaseDate, settings.larpUsernamePurchaseDate))
     }
     entries.append(.larpNumber(.nameColor, nerfNumberText(settings, .nameColor)))
     entries.append(.larpNumber(.profileColor, nerfNumberText(settings, .profileColor)))
@@ -785,7 +870,8 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
         }
         NerfClient.shared.updateSettings { current in
             var current = current
-            current.larpStars = Int64(value.filter { $0.isNumber }) ?? 0
+            let digits = value.filter { $0.isASCII && $0.isNumber }
+            current.larpStars = digits.isEmpty ? 0 : (Int64(digits) ?? Int64.max)
             return current
         }
     }, updateLarpTonEnabled: { value in
@@ -877,7 +963,7 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
             return current
         }
     }, updateLarpNumberSetting: { setting, text in
-        let digits = text.filter { $0.isNumber }
+        let digits = text.filter { $0.isASCII && $0.isNumber }
         var value = digits.isEmpty ? setting.defaultValue : (Int32(digits) ?? Int32.max)
         if setting == .nameColor || setting == .profileColor {
             value = min(7, value)
@@ -888,6 +974,12 @@ public func nerfClientController(context: AccountContext, mode: NerfClientMode =
             if setting == .premiumMonths {
                 current.larpPremiumSince = Int32(Date().timeIntervalSince1970)
             }
+            return current
+        }
+    }, updateLarpTextSetting: { setting, text in
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current[keyPath: setting.keyPath] = text
             return current
         }
     }, updateLarpGram: { value in
@@ -1262,7 +1354,7 @@ private enum NerfLarpGiftEditEntry: ItemListNodeEntry {
                 arguments.updateValue(value)
             }, action: {})
         case .info:
-            return ItemListTextItem(presentationData: presentationData, text: .plain("Цена продажи появляется у гифта в профиле, ценность — в строке «Ценность» и на её экране, с пометкой LARP. Пустое поле — снять с продажи или убрать ценность."), sectionId: self.section)
+            return ItemListTextItem(presentationData: presentationData, text: .plain("Цена продажи появляется у гифта в профиле, ценность — в строке «Ценность» и на её экране. Пустое поле — снять с продажи или убрать ценность."), sectionId: self.section)
         }
     }
 }
