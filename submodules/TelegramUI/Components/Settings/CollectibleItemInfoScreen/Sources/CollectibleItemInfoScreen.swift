@@ -1,5 +1,4 @@
 import Foundation
-import LottieSettings
 import UIKit
 import Display
 import ComponentFlow
@@ -218,8 +217,7 @@ private final class CollectibleItemInfoScreenContentComponent: Component {
                 transition: transition,
                 component: AnyComponent(LottieComponent(
                     content: LottieComponent.AppBundleContent(name: iconAnimationName),
-                    loop: false,
-                    lottieSettings: component.context.lottieRenderingSettings
+                    loop: false
                 )),
                 environment: {},
                 containerSize: CGSize(width: floor(iconBackgroundFrame.size.width * 0.8), height: floor(iconBackgroundFrame.size.height * 0.8))
@@ -586,7 +584,7 @@ private final class CollectibleItemInfoScreenComponent: Component {
                 metrics: environment.metrics,
                 deviceMetrics: environment.deviceMetrics,
                 isDisplaying: environment.isVisible,
-                isCentered: environment.metrics.widthClass == .regular,
+                isCentered: environment.presentsFloatingPanels,
                 hasInputHeight: !environment.inputHeight.isZero,
                 regularMetricsSize: CGSize(width: 430.0, height: 900.0),
                 dismiss: { [weak self] _ in
@@ -714,6 +712,31 @@ public class CollectibleItemInfoScreen: ViewControllerComponentContainer {
     }
     
     public static func initialData(context: AccountContext, peerId: EnginePeer.Id, subject: CollectibleItemInfoScreenSubject) -> Signal<CollectibleItemInfoScreenInitialData?, NoError> {
+        // Nerf Client: a LARP username or +888 number with a price has its Fragment details on this device.
+        if peerId == context.account.peerId {
+            let tonUsdRate = StarsSubscriptionConfiguration.with(appConfiguration: context.currentAppConfiguration.with { $0 }).tonUsdRate
+            let larpInfo: TelegramCollectibleItemInfo?
+            switch subject {
+            case let .username(username):
+                larpInfo = NerfClient.shared.larpCollectibleInfo(username: username, tonUsdRate: tonUsdRate)
+            case let .phoneNumber(phoneNumber):
+                larpInfo = NerfClient.shared.larpCollectibleInfo(phoneNumber: phoneNumber, tonUsdRate: tonUsdRate)
+            }
+            if let larpInfo {
+                return context.engine.data.get(
+                    TelegramEngine.EngineData.Item.Peer.Peer(id: peerId)
+                )
+                |> map { peer -> CollectibleItemInfoScreenInitialData? in
+                    switch subject {
+                    case let .username(username):
+                        return InitialData(peer: peer, subject: .username(ResolvedSubject.Username(username: username, info: larpInfo)))
+                    case let .phoneNumber(phoneNumber):
+                        return InitialData(peer: peer, subject: .phoneNumber(ResolvedSubject.PhoneNumber(phoneNumber: phoneNumber, info: larpInfo)))
+                    }
+                }
+            }
+        }
+        
         switch subject {
         case let .username(username):
             return combineLatest(

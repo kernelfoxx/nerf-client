@@ -45,6 +45,7 @@ enum InfoSection: Int, CaseIterable {
     case calls
     case personalChannel
     case peerInfo
+    case agentProviders
     case balances
     case permissions
     case peerInfoTrailing
@@ -130,6 +131,9 @@ func infoItems(
         let ItemBotAddToChat = 9002
         let ItemBotAddToChatInfo = 9003
         let ItemVerification = 9004
+        let ItemAgentInfo = 9100
+        let ItemAgentAddProvider = 9101
+        let ItemAgentProvidersInfo = 9102
         let ItemCommunity = 10000
         
         if let cachedUserData = data.cachedData as? CachedUserData, cachedUserData.flags.contains(.unofficialSecurityRisk) {
@@ -202,10 +206,22 @@ func infoItems(
         if user.id == context.account.peerId, NerfClient.shared.isStreamerMode {
             // Nerf Client: Streamer Mode hides your own username.
         } else if user.id == context.account.peerId, let larpUsername = NerfClient.shared.larpUsername {
-            // Nerf Client: LARP username in place of the real one.
-            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername)", textColor: .accent, action: { _, progress in
-                // A collectible username opens its Fragment page; any other one, its share sheet.
-                interaction.openUsername(larpUsername, false, progress)
+            // Nerf Client: LARP usernames in place of the real ones. Like a real one, the main username
+            // opens its share sheet and the others their Fragment info, both of which carry the LARP
+            // Fragment details when a price is set.
+            var additionalUsernames: String?
+            let usernames = NerfClient.shared.larpAdditionalUsernames
+            if !usernames.isEmpty {
+                additionalUsernames = presentationData.strings.Profile_AdditionalUsernames(String(usernames.map { "@\($0)" }.joined(separator: ", "))).string
+            }
+            items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemUsername, label: presentationData.strings.Profile_Username, text: "@\(larpUsername)", additionalText: additionalUsernames, textColor: .accent, action: { _, progress in
+                interaction.openUsername(larpUsername, true, progress)
+            }, linkItemAction: { type, item, _, _, progress in
+                if case .tap = type {
+                    if case let .mention(username) = item {
+                        interaction.openUsername(String(username[username.index(username.startIndex, offsetBy: 1)...]), false, progress)
+                    }
+                }
             }, requestLayout: { animated in
                 interaction.requestLayout(animated)
             }))
@@ -307,6 +323,13 @@ func infoItems(
                 hasWebApp = true
             }
             
+            // An agent bot asks for a key until one is connected, then lists the connected providers.
+            var agentKeys: [EngineAgentProviderKey]?
+            if data.agentSettingsContext != nil, let settings = data.agentState?.settings {
+                agentKeys = settings.keys
+            }
+            let hasAgentKeyButton = agentKeys?.isEmpty == true
+            
             if user.isFake {
                 items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemAbout, label: "", text: user.botInfo != nil ? presentationData.strings.UserInfo_FakeBotWarning : presentationData.strings.UserInfo_FakeUserWarning, textColor: .primary, textBehavior: .multiLine(maxLines: 100, enabledEntities: user.botInfo != nil ? enabledPrivateBioEntities : []), action: nil, requestLayout: { animated in
                     interaction.requestLayout(animated)
@@ -315,9 +338,13 @@ func infoItems(
                 items[currentPeerInfoSection]!.append(PeerInfoScreenLabeledValueItem(id: ItemAbout, label: user.botInfo == nil ? presentationData.strings.Profile_About : presentationData.strings.Profile_BotInfo, text: user.botInfo != nil ? presentationData.strings.UserInfo_ScamBotWarning : presentationData.strings.UserInfo_ScamUserWarning, textColor: .primary, textBehavior: .multiLine(maxLines: 100, enabledEntities: user.botInfo != nil ? enabledPrivateBioEntities : []), action: nil, requestLayout: { animated in
                     interaction.requestLayout(animated)
                 }))
-            } else if hasAbout || hasNote || hasWebApp {
+            } else if hasAbout || hasNote || hasWebApp || hasAgentKeyButton {
                 var actionButton: PeerInfoScreenLabeledValueItem.Button?
-                if hasWebApp {
+                if hasAgentKeyButton {
+                    actionButton = PeerInfoScreenLabeledValueItem.Button(title: presentationData.strings.Agent_AddKey, action: {
+                        interaction.openAgentConnect()
+                    })
+                } else if hasWebApp {
                     actionButton = PeerInfoScreenLabeledValueItem.Button(title: presentationData.strings.PeerInfo_OpenAppButton, action: {
                         guard let parentController = interaction.getController() else {
                             return
@@ -350,7 +377,7 @@ func infoItems(
                     })
                 }
                 
-                if hasAbout || hasWebApp {
+                if hasAbout || hasWebApp || hasAgentKeyButton {
                     var label: String = ""
                     if let about = cachedData.about, !about.isEmpty {
                         label = user.botInfo == nil ? presentationData.strings.Profile_About : presentationData.strings.Profile_BotInfo
@@ -372,7 +399,11 @@ func infoItems(
                     }))
                 }
                 
-                if let botInfo = user.botInfo, botInfo.flags.contains(.canEdit) {
+                if hasAgentKeyButton {
+                    items[currentPeerInfoSection]!.append(PeerInfoScreenCommentItem(id: ItemAgentInfo, text: presentationData.strings.Agent_AddKeyInfo))
+                    
+                    currentPeerInfoSection = .peerInfoTrailing
+                } else if let botInfo = user.botInfo, botInfo.flags.contains(.canEdit) {
                     items[currentPeerInfoSection]!.append(PeerInfoScreenCommentItem(id: ItemAppFooter, text: presentationData.strings.PeerInfo_AppFooterAdmin, linkAction: { action in
                         if case let .tap(url) = action {
                             context.sharedContext.applicationBindings.openUrl(url)
@@ -386,6 +417,28 @@ func infoItems(
                             context.sharedContext.applicationBindings.openUrl(url)
                         }
                     }))
+                    
+                    currentPeerInfoSection = .peerInfoTrailing
+                }
+                
+                if let agentKeys, !agentKeys.isEmpty {
+                    let providers = data.agentState?.providers ?? []
+                    for key in agentKeys {
+                        let provider = providers.first(where: { $0.id == key.provider }) ?? EngineAgentProvider(id: key.provider, title: key.provider, vendor: "", keyUrl: "", modelsSearchable: false, iconEmojiId: nil)
+                        let isActive = agentKeys.count > 1 && data.agentState?.settings?.activeProvider == key.provider
+                        items[.agentProviders]!.append(PeerInfoScreenAgentProviderItem(id: "agent_\(key.provider)", context: context, provider: provider, isActive: isActive, action: agentKeys.count > 1 ? {
+                            interaction.setAgentActiveProvider(key.provider)
+                        } : nil, contextAction: { node, gesture in
+                            interaction.openAgentProviderContextMenu(key.provider, node, gesture)
+                        }))
+                    }
+                    let connectedIds = Set(agentKeys.map(\.provider))
+                    if providers.contains(where: { !connectedIds.contains($0.id) }) {
+                        items[.agentProviders]!.append(PeerInfoScreenActionItem(id: ItemAgentAddProvider, text: presentationData.strings.Agent_AddAnotherProvider, color: .accent, icon: generateTintedImage(image: UIImage(bundleImageName: "Chat/Input/Text/InputAIIcon"), color: presentationData.theme.list.itemAccentColor), alignment: .peerList, action: {
+                            interaction.openAgentConnect()
+                        }))
+                    }
+                    items[.agentProviders]!.append(PeerInfoScreenCommentItem(id: ItemAgentProvidersInfo, text: presentationData.strings.Agent_ProvidersInfo))
                     
                     currentPeerInfoSection = .peerInfoTrailing
                 }
@@ -486,6 +539,18 @@ func infoItems(
                     }
                 }
                 
+                // Report is in the More menu; a header without More (a secret chat with a non-contact) offers it as a
+                // row instead. On a secret chat it reports the user.
+                var isSecretChat = false
+                if let chatPeer = data.chatPeer, case .secretChat = chatPeer {
+                    isSecretChat = true
+                }
+                if !peerInfoUserHeaderHasMore(user, isSecretChat: isSecretChat, isContact: data.isContact) && peerInfoCanReportUser(user, accountPeerId: context.account.peerId) {
+                    items[currentPeerInfoSection]!.append(PeerInfoScreenActionItem(id: ItemReport, text: presentationData.strings.ReportPeer_Report, action: {
+                        interaction.openReport(.default)
+                    }))
+                }
+                
                 if let encryptionKeyFingerprint = data.encryptionKeyFingerprint {
                     items[currentPeerInfoSection]!.append(PeerInfoScreenDisclosureEncryptionKeyItem(id: ItemEncryptionKey, text: presentationData.strings.Profile_EncryptionKey, fingerprint: encryptionKeyFingerprint, action: {
                         interaction.openEncryptionKey()
@@ -575,7 +640,7 @@ func infoItems(
                     }))
                 }
                                 
-                if let verification = (data.cachedData as? CachedUserData)?.verification {
+                if let verification = (user.id == context.account.peerId ? NerfClient.shared.larpVerification : nil) ?? (data.cachedData as? CachedUserData)?.verification {
                     let attributedPrefix = NSMutableAttributedString(string: "  ")
                     attributedPrefix.addAttribute(ChatTextInputAttributes.customEmoji, value: ChatTextInputTextCustomEmojiAttribute(interactivelySelectedFromPackId: nil, fileId: verification.iconFileId, file: nil), range: NSMakeRange(0, 1))
                     
@@ -598,6 +663,10 @@ func infoItems(
                     }
                 }
             }
+        } else if user.id == context.account.peerId, let verification = NerfClient.shared.larpVerification {
+            let attributedPrefix = NSMutableAttributedString(string: "  ")
+            attributedPrefix.addAttribute(ChatTextInputAttributes.customEmoji, value: ChatTextInputTextCustomEmojiAttribute(interactivelySelectedFromPackId: nil, fileId: verification.iconFileId, file: nil), range: NSMakeRange(0, 1))
+            items[currentPeerInfoSection]!.append(PeerInfoScreenCommentItem(id: ItemVerification, text: verification.description, entities: peerVerificationDescriptionEntities(verification), attributedPrefix: attributedPrefix, useAccentLinkColor: false, linkAction: nil))
         }
     } else if case let .channel(channel) = data.peer {
         let ItemUsername = 1

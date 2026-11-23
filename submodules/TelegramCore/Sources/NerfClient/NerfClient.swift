@@ -53,6 +53,20 @@ public final class NerfClient {
         public var larpPremiumSince: Int32 = 0
         public var larpUsernameEnabled: Bool = false
         public var larpUsername: String = ""
+        /// More usernames shown under the main one, separated by spaces or commas.
+        public var larpAdditionalUsernames: String = ""
+        /// The Fragment price in TON as typed; empty means the item is not a collectible.
+        public var larpUsernamePrice: String = ""
+        /// The Fragment purchase date as typed (DD.MM.YYYY); empty means today.
+        public var larpUsernamePurchaseDate: String = ""
+        public var larpNumberPrice: String = ""
+        public var larpNumberPurchaseDate: String = ""
+        public var larpVerificationEnabled: Bool = false
+        /// The username the verification mark was copied from, as typed.
+        public var larpVerificationSource: String = ""
+        public var larpVerificationIconFileId: Int64 = 0
+        public var larpVerificationBotId: Int64 = 0
+        public var larpVerificationDescription: String = ""
 
         public init(larpGiftsEnabled: Bool, larpNumberEnabled: Bool, larpNumber: String, larpStarsEnabled: Bool, larpStars: Int64, larpTonEnabled: Bool, larpTonNano: Int64, streamerMode: Bool, showUserId: Bool) {
             self.larpGiftsEnabled = larpGiftsEnabled
@@ -76,6 +90,8 @@ public final class NerfClient {
         public let text: String?
         public let pinnedToTop: Bool
         public let savedToProfile: Bool
+        /// Whether the gift is also listed among the collectibles of the account's wallet.
+        public let inWallet: Bool
 
         private enum CodingKeys: String, CodingKey {
             case accountPeerId
@@ -86,9 +102,10 @@ public final class NerfClient {
             case text
             case pinnedToTop
             case savedToProfile
+            case inWallet
         }
 
-        public init(accountPeerId: Int64, peerId: Int64, localMessageId: Int32, gift: StarGift, date: Int32, text: String?, pinnedToTop: Bool = false, savedToProfile: Bool = true) {
+        public init(accountPeerId: Int64, peerId: Int64, localMessageId: Int32, gift: StarGift, date: Int32, text: String?, pinnedToTop: Bool = false, savedToProfile: Bool = true, inWallet: Bool = false) {
             self.accountPeerId = accountPeerId
             self.peerId = peerId
             self.localMessageId = localMessageId
@@ -97,6 +114,7 @@ public final class NerfClient {
             self.text = text
             self.pinnedToTop = pinnedToTop
             self.savedToProfile = savedToProfile
+            self.inWallet = inWallet
         }
 
         public init(from decoder: Decoder) throws {
@@ -109,6 +127,7 @@ public final class NerfClient {
             self.text = try container.decodeIfPresent(String.self, forKey: .text)
             self.pinnedToTop = try container.decodeIfPresent(Bool.self, forKey: .pinnedToTop) ?? false
             self.savedToProfile = try container.decodeIfPresent(Bool.self, forKey: .savedToProfile) ?? true
+            self.inWallet = try container.decodeIfPresent(Bool.self, forKey: .inWallet) ?? false
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -121,18 +140,23 @@ public final class NerfClient {
             try container.encodeIfPresent(self.text, forKey: .text)
             try container.encode(self.pinnedToTop, forKey: .pinnedToTop)
             try container.encode(self.savedToProfile, forKey: .savedToProfile)
+            try container.encode(self.inWallet, forKey: .inWallet)
         }
 
         func withUpdated(gift: StarGift) -> LarpGift {
-            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: self.savedToProfile)
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: self.savedToProfile, inWallet: self.inWallet)
         }
 
         func withUpdated(pinnedToTop: Bool) -> LarpGift {
-            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: pinnedToTop, savedToProfile: self.savedToProfile)
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: pinnedToTop, savedToProfile: self.savedToProfile, inWallet: self.inWallet)
         }
 
         func withUpdated(savedToProfile: Bool) -> LarpGift {
-            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: savedToProfile)
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: savedToProfile, inWallet: self.inWallet)
+        }
+
+        func withUpdated(inWallet: Bool) -> LarpGift {
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: self.savedToProfile, inWallet: inWallet)
         }
 
         func withUpdated(peerId: Int64, localMessageId: Int32, date: Int32) -> LarpGift {
@@ -149,6 +173,7 @@ public final class NerfClient {
         static let larpNumberEnabled = "nerf.larpNumberEnabled"
         static let larpNumber = "nerf.larpNumber"
         static let larpGifts = "nerf.larpGifts"
+        static let larpWalletCard = "nerf.larpWalletCard"
         static let larpStarsEnabled = "nerf.larpStarsEnabled"
         static let larpStars = "nerf.larpStars"
         static let larpTonEnabled = "nerf.larpTonEnabled"
@@ -184,6 +209,16 @@ public final class NerfClient {
         static let larpPremiumSince = "nerf.larpPremiumSince"
         static let larpUsernameEnabled = "nerf.larpUsernameEnabled"
         static let larpUsername = "nerf.larpUsername"
+        static let larpAdditionalUsernames = "nerf.larpAdditionalUsernames"
+        static let larpUsernamePrice = "nerf.larpUsernamePrice"
+        static let larpUsernamePurchaseDate = "nerf.larpUsernamePurchaseDate"
+        static let larpNumberPrice = "nerf.larpNumberPrice"
+        static let larpNumberPurchaseDate = "nerf.larpNumberPurchaseDate"
+        static let larpVerificationEnabled = "nerf.larpVerificationEnabled"
+        static let larpVerificationSource = "nerf.larpVerificationSource"
+        static let larpVerificationIconFileId = "nerf.larpVerificationIconFileId"
+        static let larpVerificationBotId = "nerf.larpVerificationBotId"
+        static let larpVerificationDescription = "nerf.larpVerificationDescription"
     }
 
     private let defaults = UserDefaults.standard
@@ -192,6 +227,8 @@ public final class NerfClient {
     private var currentLarpGifts: [LarpGift]
     private let settingsPromise: ValuePromise<Settings>
     private let larpGiftsPromise: ValuePromise<[LarpGift]>
+    private var larpWalletCardRevision: Int = 0
+    private let larpWalletCardPromise = ValuePromise<Int>(0, ignoreRepeated: true)
 
     private init() {
         let defaults = UserDefaults.standard
@@ -235,6 +272,16 @@ public final class NerfClient {
         settingsValue.larpPremiumSince = Int32(clamping: defaults.integer(forKey: Keys.larpPremiumSince))
         settingsValue.larpUsernameEnabled = defaults.bool(forKey: Keys.larpUsernameEnabled)
         settingsValue.larpUsername = defaults.string(forKey: Keys.larpUsername) ?? ""
+        settingsValue.larpAdditionalUsernames = defaults.string(forKey: Keys.larpAdditionalUsernames) ?? ""
+        settingsValue.larpUsernamePrice = defaults.string(forKey: Keys.larpUsernamePrice) ?? ""
+        settingsValue.larpUsernamePurchaseDate = defaults.string(forKey: Keys.larpUsernamePurchaseDate) ?? ""
+        settingsValue.larpNumberPrice = defaults.string(forKey: Keys.larpNumberPrice) ?? ""
+        settingsValue.larpNumberPurchaseDate = defaults.string(forKey: Keys.larpNumberPurchaseDate) ?? ""
+        settingsValue.larpVerificationEnabled = defaults.bool(forKey: Keys.larpVerificationEnabled)
+        settingsValue.larpVerificationSource = defaults.string(forKey: Keys.larpVerificationSource) ?? ""
+        settingsValue.larpVerificationIconFileId = (defaults.object(forKey: Keys.larpVerificationIconFileId) as? NSNumber)?.int64Value ?? 0
+        settingsValue.larpVerificationBotId = (defaults.object(forKey: Keys.larpVerificationBotId) as? NSNumber)?.int64Value ?? 0
+        settingsValue.larpVerificationDescription = defaults.string(forKey: Keys.larpVerificationDescription) ?? ""
         var larpGifts: [LarpGift] = []
         if let data = defaults.data(forKey: Keys.larpGifts), let value = try? AdaptedPostboxDecoder().decode(StoredLarpGifts.self, from: data) {
             larpGifts = value.gifts
@@ -298,6 +345,16 @@ public final class NerfClient {
         self.defaults.set(Int(updated.larpPremiumSince), forKey: Keys.larpPremiumSince)
         self.defaults.set(updated.larpUsernameEnabled, forKey: Keys.larpUsernameEnabled)
         self.defaults.set(updated.larpUsername, forKey: Keys.larpUsername)
+        self.defaults.set(updated.larpAdditionalUsernames, forKey: Keys.larpAdditionalUsernames)
+        self.defaults.set(updated.larpUsernamePrice, forKey: Keys.larpUsernamePrice)
+        self.defaults.set(updated.larpUsernamePurchaseDate, forKey: Keys.larpUsernamePurchaseDate)
+        self.defaults.set(updated.larpNumberPrice, forKey: Keys.larpNumberPrice)
+        self.defaults.set(updated.larpNumberPurchaseDate, forKey: Keys.larpNumberPurchaseDate)
+        self.defaults.set(updated.larpVerificationEnabled, forKey: Keys.larpVerificationEnabled)
+        self.defaults.set(updated.larpVerificationSource, forKey: Keys.larpVerificationSource)
+        self.defaults.set(NSNumber(value: updated.larpVerificationIconFileId), forKey: Keys.larpVerificationIconFileId)
+        self.defaults.set(NSNumber(value: updated.larpVerificationBotId), forKey: Keys.larpVerificationBotId)
+        self.defaults.set(updated.larpVerificationDescription, forKey: Keys.larpVerificationDescription)
         self.settingsPromise.set(updated)
     }
 
@@ -313,8 +370,9 @@ public final class NerfClient {
         guard settings.larpPremium, settings.larpPremiumMonths > 0 else {
             return nil
         }
-        let (until, overflow) = settings.larpPremiumSince.addingReportingOverflow(settings.larpPremiumMonths.multipliedReportingOverflow(by: 30 * 24 * 60 * 60).partialValue)
-        return overflow ? Int32.max : until
+        let (duration, durationOverflow) = settings.larpPremiumMonths.multipliedReportingOverflow(by: 30 * 24 * 60 * 60)
+        let (until, overflow) = settings.larpPremiumSince.addingReportingOverflow(duration)
+        return durationOverflow || overflow ? Int32.max : until
     }
 
     /// The account as its own profile header shows it: with the worn LARP gift (which also gives
@@ -334,7 +392,25 @@ public final class NerfClient {
         if settings.larpProfileColor > 0 {
             updated = updated.withUpdatedProfileColor(PeerNameColor(rawValue: settings.larpProfileColor - 1))
         }
+        if let verification = self.larpVerification {
+            updated = TelegramUser(id: updated.id, accessHash: updated.accessHash, firstName: updated.firstName, lastName: updated.lastName, username: updated.username, phone: updated.phone, photo: updated.photo, botInfo: updated.botInfo, restrictionInfo: updated.restrictionInfo, flags: updated.flags, emojiStatus: updated.emojiStatus, usernames: updated.usernames, storiesHidden: updated.storiesHidden, nameColor: updated.nameColor, backgroundEmojiId: updated.backgroundEmojiId, profileColor: updated.profileColor, profileBackgroundEmojiId: updated.profileBackgroundEmojiId, subscriberCount: updated.subscriberCount, verificationIconFileId: verification.iconFileId, linkedCommunityId: updated.linkedCommunityId)
+        }
         return .user(updated)
+    }
+
+    /// The LARP third-party verification of the account: the mark before its name and the line in its profile,
+    /// shown only on this device. Nil when it is off, not loaded yet, or Streamer Mode is on.
+    public var larpVerification: PeerVerification? {
+        let settings = self.settings
+        guard settings.larpVerificationEnabled, settings.larpVerificationIconFileId != 0, !settings.streamerMode else {
+            return nil
+        }
+        return PeerVerification(
+            botId: PeerId(namespace: Namespaces.Peer.CloudUser, id: PeerId.Id._internalFromInt64Value(settings.larpVerificationBotId)),
+            iconFileId: settings.larpVerificationIconFileId,
+            description: settings.larpVerificationDescription,
+            descriptionEntities: []
+        )
     }
 
     public var isStreamerMode: Bool {
@@ -380,9 +456,11 @@ public final class NerfClient {
         self.updateSettings { current in
             var current = current
             if ton, current.larpTonEnabled {
-                current.larpTonNano += amount
+                let (sum, overflow) = current.larpTonNano.addingReportingOverflow(amount)
+                current.larpTonNano = overflow ? Int64.max : sum
             } else if !ton, current.larpStarsEnabled {
-                current.larpStars += amount
+                let (sum, overflow) = current.larpStars.addingReportingOverflow(amount)
+                current.larpStars = overflow ? Int64.max : sum
             }
             return current
         }
@@ -406,6 +484,114 @@ public final class NerfClient {
             return username
         }
         return nil
+    }
+
+    /// The extra LARP usernames (without "@") listed under the main one.
+    public var larpAdditionalUsernames: [String] {
+        guard let mainUsername = self.larpUsername else {
+            return []
+        }
+        var result: [String] = []
+        for part in self.settings.larpAdditionalUsernames.components(separatedBy: CharacterSet(charactersIn: " ,;@\n")) {
+            if !part.isEmpty, part.lowercased() != mainUsername.lowercased(), !result.contains(where: { $0.lowercased() == part.lowercased() }) {
+                result.append(part)
+            }
+        }
+        return result
+    }
+
+    /// The Fragment info of a LARP username that has a price, or nil when it is not a LARP collectible.
+    public func larpCollectibleInfo(username: String, tonUsdRate: Double) -> TelegramCollectibleItemInfo? {
+        guard !self.isStreamerMode, let mainUsername = self.larpUsername else {
+            return nil
+        }
+        let name = username.lowercased()
+        guard name == mainUsername.lowercased() || self.larpAdditionalUsernames.contains(where: { $0.lowercased() == name }) else {
+            return nil
+        }
+        let settings = self.settings
+        return NerfClient.larpCollectibleInfo(subject: .username(username), price: settings.larpUsernamePrice, purchaseDate: settings.larpUsernamePurchaseDate, tonUsdRate: tonUsdRate, url: "https://fragment.com/username/\(name)")
+    }
+
+    /// The Fragment info of the +888 LARP number when it has a price, or nil.
+    public func larpCollectibleInfo(phoneNumber: String, tonUsdRate: Double) -> TelegramCollectibleItemInfo? {
+        guard !self.isStreamerMode, let larpNumber = self.larpNumber else {
+            return nil
+        }
+        let digits = phoneNumber.filter { $0.isASCII && $0.isNumber }
+        guard digits.hasPrefix("888"), digits == larpNumber.filter({ $0.isASCII && $0.isNumber }) else {
+            return nil
+        }
+        let settings = self.settings
+        return NerfClient.larpCollectibleInfo(subject: .phoneNumber(phoneNumber), price: settings.larpNumberPrice, purchaseDate: settings.larpNumberPurchaseDate, tonUsdRate: tonUsdRate, url: "https://fragment.com/number/\(digits)")
+    }
+
+    private static func larpCollectibleInfo(subject: TelegramCollectibleItemInfo.Subject, price: String, purchaseDate: String, tonUsdRate: Double, url: String) -> TelegramCollectibleItemInfo? {
+        let nano = NerfClient.nanotons(text: price)
+        guard nano > 0 else {
+            return nil
+        }
+        let usdCents = Double(nano) / 1_000_000_000.0 * tonUsdRate * 100.0
+        return TelegramCollectibleItemInfo(
+            subject: subject,
+            purchaseDate: NerfClient.timestamp(dateText: purchaseDate) ?? Int32(Date().timeIntervalSince1970),
+            currency: "USD",
+            currencyAmount: usdCents.isFinite && usdCents < Double(Int64.max) ? Int64(max(0.0, usdCents)) : Int64.max,
+            cryptoCurrency: "TON",
+            cryptoCurrencyAmount: nano,
+            url: url
+        )
+    }
+
+    /// Parses a typed TON amount ("1 250,5") into nanotons, saturating instead of overflowing.
+    public static func nanotons(text: String) -> Int64 {
+        let normalized = text.replacingOccurrences(of: ",", with: ".").filter { ($0.isASCII && $0.isNumber) || $0 == "." }
+        let parts = normalized.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let integerText = parts.first else {
+            return 0
+        }
+        let integer: Int64
+        if integerText.isEmpty {
+            integer = 0
+        } else if let value = Int64(integerText) {
+            integer = value
+        } else {
+            return Int64.max
+        }
+        var fractionText = parts.count > 1 ? String(parts[1].filter { $0 != "." }.prefix(9)) : ""
+        fractionText += String(repeating: "0", count: 9 - fractionText.count)
+        let fraction = Int64(fractionText) ?? 0
+        let (product, multiplyOverflow) = integer.multipliedReportingOverflow(by: 1_000_000_000)
+        if multiplyOverflow {
+            return Int64.max
+        }
+        let (sum, addOverflow) = product.addingReportingOverflow(fraction)
+        return addOverflow ? Int64.max : sum
+    }
+
+    /// Parses "DD.MM.YYYY" (also with "/" or "-") into a timestamp at noon, or nil when it is not a past date.
+    public static func timestamp(dateText: String) -> Int32? {
+        let parts = dateText.components(separatedBy: CharacterSet(charactersIn: "./- ")).filter { !$0.isEmpty }
+        guard parts.count == 3, let day = Int(parts[0]), let month = Int(parts[1]), var year = Int(parts[2]) else {
+            return nil
+        }
+        if year < 100 {
+            year += 2000
+        }
+        guard (1 ... 31).contains(day), (1 ... 12).contains(month), (2013 ... 2037).contains(year) else {
+            return nil
+        }
+        var components = DateComponents()
+        components.day = day
+        components.month = month
+        components.year = year
+        components.hour = 12
+        let calendar = Calendar(identifier: .gregorian)
+        guard let date = calendar.date(from: components), calendar.component(.day, from: date) == day else {
+            return nil
+        }
+        let now = Date()
+        return Int32(min(date, now).timeIntervalSince1970)
     }
 
     /// The LARP star rating to show in the account's own profile, or nil when it is off.
@@ -473,6 +659,73 @@ public final class NerfClient {
             self.defaults.set(data, forKey: Keys.larpGifts)
         }
         self.larpGiftsPromise.set(updated)
+    }
+
+    /// The account's own unique LARP gifts that were moved to its wallet. They are listed there only on this device.
+    public func larpWalletGifts(accountPeerId: EnginePeer.Id) -> [StarGift.UniqueGift] {
+        guard self.settings.larpGiftsEnabled else {
+            return []
+        }
+        let accountId = accountPeerId.toInt64()
+        return self.larpGifts.compactMap { record -> StarGift.UniqueGift? in
+            guard record.inWallet, record.accountPeerId == accountId, record.peerId == accountId else {
+                return nil
+            }
+            if case let .unique(gift) = nerfPresentedLarpGift(record.gift, ownerPeerId: accountPeerId) {
+                return gift
+            }
+            return nil
+        }
+    }
+
+    /// Whether one of the account's own unique LARP gifts is in its wallet; nil when the slug is not such a gift.
+    public func isLarpGiftInWallet(slug: String, accountPeerId: EnginePeer.Id) -> Bool? {
+        let accountId = accountPeerId.toInt64()
+        for record in self.larpGifts {
+            if record.accountPeerId == accountId, record.peerId == accountId, case let .unique(gift) = record.gift, gift.slug == slug {
+                return record.inWallet
+            }
+        }
+        return nil
+    }
+
+    public func setLarpGiftInWallet(slug: String, accountPeerId: EnginePeer.Id, inWallet: Bool) {
+        let accountId = accountPeerId.toInt64()
+        self.updateLarpGifts { current in
+            return current.map { record in
+                if record.accountPeerId == accountId, record.peerId == accountId, case let .unique(gift) = record.gift, gift.slug == slug {
+                    return record.withUpdated(inWallet: inWallet)
+                }
+                return record
+            }
+        }
+    }
+
+    /// The LARP gifts stuck on the account's wallet card, as the wallet encodes them. Telegram never receives them.
+    public func larpWalletCardData(accountPeerId: EnginePeer.Id) -> Data? {
+        return self.defaults.data(forKey: "\(Keys.larpWalletCard).\(accountPeerId.toInt64())")
+    }
+
+    public func setLarpWalletCardData(_ data: Data?, accountPeerId: EnginePeer.Id) {
+        let key = "\(Keys.larpWalletCard).\(accountPeerId.toInt64())"
+        if let data {
+            self.defaults.set(data, forKey: key)
+        } else {
+            self.defaults.removeObject(forKey: key)
+        }
+        self.lock.lock()
+        self.larpWalletCardRevision += 1
+        let revision = self.larpWalletCardRevision
+        self.lock.unlock()
+        // The wallet saves its card in the middle of a gesture, so observers are told after it returns.
+        DispatchQueue.main.async {
+            self.larpWalletCardPromise.set(revision)
+        }
+    }
+
+    /// Changes whenever the LARP card stickers are saved.
+    public var larpWalletCardSignal: Signal<Int, NoError> {
+        return self.larpWalletCardPromise.get()
     }
 
     public func hasLarpGifts(accountPeerId: EnginePeer.Id, peerId: EnginePeer.Id) -> Bool {
@@ -1163,7 +1416,7 @@ func nerfLarpValueInfo(slug: String, accountPeerId: EnginePeer.Id? = nil) -> Sta
                 value: value,
                 currency: "USD",
                 initialSaleDate: record.date,
-                initialSaleStars: max(1, value * 100 / 150),
+                initialSaleStars: max(1, value / 3 * 2),
                 initialSalePrice: value,
                 lastSaleDate: nil,
                 lastSalePrice: nil,
@@ -1318,4 +1571,94 @@ func _internal_addCustomLarpUniqueGift(account: Account, gift: StarGift.Gift, mo
         craftChancePermille: nerfDefaultCraftChancePermille
     )
     return _internal_addLarpGift(account: account, peerId: account.peerId, gift: .unique(uniqueGift), text: nil, entities: nil, nameHidden: false)
+}
+
+private func nerfLoadPeerVerification(account: Account, name: String) -> Signal<(peerId: PeerId?, verification: PeerVerification?), NoError> {
+    return _internal_resolvePeerByName(account: account, name: name, referrer: nil)
+    |> mapToSignal { result -> Signal<PeerId?, NoError> in
+        switch result {
+        case .progress:
+            return .complete()
+        case let .result(peerId):
+            return .single(peerId)
+        }
+    }
+    |> take(1)
+    |> mapToSignal { peerId -> Signal<(peerId: PeerId?, verification: PeerVerification?), NoError> in
+        guard let peerId else {
+            return .single((nil, nil))
+        }
+        return _internal_fetchAndUpdateCachedPeerData(accountPeerId: account.peerId, peerId: peerId, network: account.network, postbox: account.postbox)
+        |> mapToSignal { _ -> Signal<(peerId: PeerId?, verification: PeerVerification?), NoError> in
+            return .complete()
+        }
+        |> then(
+            account.postbox.transaction { transaction -> (peerId: PeerId?, verification: PeerVerification?) in
+                var verification: PeerVerification?
+                let cachedData = transaction.getPeerCachedData(peerId: peerId)
+                if let cachedData = cachedData as? CachedUserData {
+                    if let verifier = cachedData.botInfo?.verifierSettings {
+                        verification = PeerVerification(botId: peerId, iconFileId: verifier.iconFileId, description: verifier.customDescription ?? "This user was verified by the organization \"\(verifier.companyName)\".", descriptionEntities: [])
+                    } else {
+                        verification = cachedData.verification
+                    }
+                } else if let cachedData = cachedData as? CachedChannelData {
+                    verification = cachedData.verification
+                }
+                if let current = verification, current.iconFileId == 0 {
+                    verification = nil
+                }
+                return (peerId, verification)
+            }
+        )
+    }
+}
+
+/// Copies a verification mark into the LARP settings: from the verifier bot `name`, or from an account or chat
+/// that already has a mark. When the verifier bot does not expose its mark, `fallbackNames` are tried in order
+/// and only a mark issued by that bot is taken. Only what Telegram shows about these usernames is read; the
+/// verifier is not contacted.
+func _internal_loadLarpVerification(account: Account, name: String, fallbackNames: [String]) -> Signal<Bool, NoError> {
+    let store: (PeerVerification?) -> Bool = { verification in
+        guard let verification else {
+            return false
+        }
+        NerfClient.shared.updateSettings { current in
+            var current = current
+            current.larpVerificationIconFileId = verification.iconFileId
+            current.larpVerificationBotId = verification.botId.id._internalGetInt64Value()
+            current.larpVerificationDescription = verification.description
+            return current
+        }
+        return true
+    }
+    return nerfLoadPeerVerification(account: account, name: name)
+    |> mapToSignal { result -> Signal<Bool, NoError> in
+        if result.verification != nil {
+            return .single(store(result.verification))
+        }
+        guard let verifierId = result.peerId, !fallbackNames.isEmpty else {
+            return .single(false)
+        }
+        var found: Signal<PeerVerification?, NoError> = .single(nil)
+        for fallbackName in fallbackNames {
+            found = found
+            |> mapToSignal { verification -> Signal<PeerVerification?, NoError> in
+                if let verification {
+                    return .single(verification)
+                }
+                return nerfLoadPeerVerification(account: account, name: fallbackName)
+                |> map { result -> PeerVerification? in
+                    if let verification = result.verification, verification.botId == verifierId {
+                        return verification
+                    }
+                    return nil
+                }
+            }
+        }
+        return found
+        |> map { verification -> Bool in
+            return store(verification)
+        }
+    }
 }
