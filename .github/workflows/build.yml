@@ -59,7 +59,8 @@ jobs:
           EOF
 
       - name: Restore Bazel cache
-        uses: actions/cache@v4
+        id: bazel-cache
+        uses: actions/cache/restore@v4
         with:
           path: ~/telegram-bazel-cache
           key: bazel-${{ runner.os }}-${{ hashFiles('versions.json') }}-${{ github.sha }}
@@ -79,6 +80,14 @@ jobs:
             --configuration=release_arm64 \
             --buildNumber=${{ github.run_number }} \
             --outputBuildArtifactsPath=build/artifacts
+
+      # Saved after a failed build too, so that the next run only rebuilds what changed.
+      - name: Save Bazel cache
+        if: always() && steps.bazel-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/telegram-bazel-cache
+          key: ${{ steps.bazel-cache.outputs.cache-primary-key }}
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
