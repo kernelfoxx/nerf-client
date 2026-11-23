@@ -2787,10 +2787,10 @@ private func nerfLarpGiftMatchesFilter(_ gift: ProfileGiftsContext.State.StarGif
     if filter.contains(.peerColor) {
         return false
     }
-    if filter.contains(.displayed) && !gift.savedToProfile {
+    if !filter.contains(.hidden) && !gift.savedToProfile {
         return false
     }
-    if filter.contains(.hidden) && gift.savedToProfile {
+    if !filter.contains(.displayed) && gift.savedToProfile {
         return false
     }
     switch gift.gift {

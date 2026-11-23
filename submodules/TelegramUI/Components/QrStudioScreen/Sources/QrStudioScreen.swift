@@ -576,6 +576,10 @@ final class QrStudioScreenComponent: Component {
             guard !self.isLookModified else {
                 return
             }
+            // Nerf Client: a LARP gift look exists only on this device, so the server's look does not replace it.
+            if self.look.kind == .gift, let gift = self.look.selectedGift, NerfClient.isLarpUniqueGift(gift.gift) {
+                return
+            }
             let context = component.context
             let current = self.currentSettings()
             guard current.serverLook(hasPremium: context.isPremium) != serverLook else {
@@ -654,6 +658,13 @@ final class QrStudioScreenComponent: Component {
                 }, backdropId: backdropId)
             case let .gift(giftId):
                 guard let gift = self.look.gifts.first(where: { $0.id == giftId }) else {
+                    return
+                }
+                // Nerf Client: Telegram does not know LARP gifts; the look is kept in the local settings only.
+                if NerfClient.isLarpUniqueGift(gift.gift) {
+                    self.saveWorkItem?.perform()
+                    self.saveWorkItem?.cancel()
+                    self.saveWorkItem = nil
                     return
                 }
                 update = .gift(gift: gift.gift, reference: gift.reference ?? .slug(slug: gift.gift.slug))

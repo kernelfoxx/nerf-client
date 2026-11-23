@@ -2782,6 +2782,11 @@ private final class WalletScreenComponent: Component {
             guard let component = self.component, let controller = self.environment?.controller() else {
                 return
             }
+            // Nerf Client: a LARP gift opens as a gift; the collectible screen works with on-chain items.
+            if collectible.isLarp, let gift = collectible.nft?.gift {
+                controller.push(component.context.sharedContext.makeGiftViewScreen(context: component.context, gift: gift, shareStory: nil, openChatTheme: nil, dismissed: nil))
+                return
+            }
             let walletContext = component.walletContext
             controller.push(component.context.sharedContext.makeWalletCollectibleScreen(
                 context: component.context,
@@ -3198,7 +3203,12 @@ private final class WalletScreenComponent: Component {
                     self?.transferApplicationInForeground = foreground
                     self?.updatePendingTransferAnimations()
                 }))
-                self.walletStateDisposable = (subscribedContext.state
+                // Nerf Client: LARP gifts moved to the wallet and stuck on its card are added here, on this device only.
+                let accountPeerId = component.context.account.peerId
+                self.walletStateDisposable = (combineLatest(subscribedContext.state, NerfClient.shared.larpGiftsSignal, NerfClient.shared.settingsSignal, NerfClient.shared.larpWalletCardSignal)
+                |> map { walletState, _, _, _ -> WalletContext.State in
+                    return walletState.withLarp(accountPeerId: accountPeerId)
+                }
                 |> deliverOnMainQueue).start(next: { [weak self] walletState in
                     guard let self, self.walletContext === subscribedContext else {
                         return

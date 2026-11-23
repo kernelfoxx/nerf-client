@@ -692,7 +692,14 @@ final class PeerInfoHeaderNode: ASDisplayNode {
         
         let currentSavedMusic = self.profileMusic(peer: peer, screenData: screenData)
         let currentWalletBalance: Int64?
-        if !self.isSettings, let balance = (screenData?.cachedData as? CachedUserData)?.walletCard?.balance, balance >= 100_000_000 {
+        // Nerf Client: the account's own profile shows the LARP Gram balance, on this device only.
+        let shownWalletBalance: Int64?
+        if peer?.id == self.context.account.peerId, let larpGramBalance = NerfClient.shared.larpGramBalance, !NerfClient.shared.isStreamerMode {
+            shownWalletBalance = larpGramBalance
+        } else {
+            shownWalletBalance = (screenData?.cachedData as? CachedUserData)?.walletCard?.balance
+        }
+        if !self.isSettings, let balance = shownWalletBalance, balance >= 100_000_000 {
             currentWalletBalance = balance
         } else {
             currentWalletBalance = nil

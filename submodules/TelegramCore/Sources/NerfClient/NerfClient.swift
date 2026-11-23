@@ -84,6 +84,8 @@ public final class NerfClient {
         public let text: String?
         public let pinnedToTop: Bool
         public let savedToProfile: Bool
+        /// Whether the gift is also listed among the collectibles of the account's wallet.
+        public let inWallet: Bool
 
         private enum CodingKeys: String, CodingKey {
             case accountPeerId
@@ -94,9 +96,10 @@ public final class NerfClient {
             case text
             case pinnedToTop
             case savedToProfile
+            case inWallet
         }
 
-        public init(accountPeerId: Int64, peerId: Int64, localMessageId: Int32, gift: StarGift, date: Int32, text: String?, pinnedToTop: Bool = false, savedToProfile: Bool = true) {
+        public init(accountPeerId: Int64, peerId: Int64, localMessageId: Int32, gift: StarGift, date: Int32, text: String?, pinnedToTop: Bool = false, savedToProfile: Bool = true, inWallet: Bool = false) {
             self.accountPeerId = accountPeerId
             self.peerId = peerId
             self.localMessageId = localMessageId
@@ -105,6 +108,7 @@ public final class NerfClient {
             self.text = text
             self.pinnedToTop = pinnedToTop
             self.savedToProfile = savedToProfile
+            self.inWallet = inWallet
         }
 
         public init(from decoder: Decoder) throws {
@@ -117,6 +121,7 @@ public final class NerfClient {
             self.text = try container.decodeIfPresent(String.self, forKey: .text)
             self.pinnedToTop = try container.decodeIfPresent(Bool.self, forKey: .pinnedToTop) ?? false
             self.savedToProfile = try container.decodeIfPresent(Bool.self, forKey: .savedToProfile) ?? true
+            self.inWallet = try container.decodeIfPresent(Bool.self, forKey: .inWallet) ?? false
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -129,18 +134,23 @@ public final class NerfClient {
             try container.encodeIfPresent(self.text, forKey: .text)
             try container.encode(self.pinnedToTop, forKey: .pinnedToTop)
             try container.encode(self.savedToProfile, forKey: .savedToProfile)
+            try container.encode(self.inWallet, forKey: .inWallet)
         }
 
         func withUpdated(gift: StarGift) -> LarpGift {
-            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: self.savedToProfile)
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: self.savedToProfile, inWallet: self.inWallet)
         }
 
         func withUpdated(pinnedToTop: Bool) -> LarpGift {
-            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: pinnedToTop, savedToProfile: self.savedToProfile)
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: pinnedToTop, savedToProfile: self.savedToProfile, inWallet: self.inWallet)
         }
 
         func withUpdated(savedToProfile: Bool) -> LarpGift {
-            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: savedToProfile)
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: savedToProfile, inWallet: self.inWallet)
+        }
+
+        func withUpdated(inWallet: Bool) -> LarpGift {
+            return LarpGift(accountPeerId: self.accountPeerId, peerId: self.peerId, localMessageId: self.localMessageId, gift: self.gift, date: self.date, text: self.text, pinnedToTop: self.pinnedToTop, savedToProfile: self.savedToProfile, inWallet: inWallet)
         }
 
         func withUpdated(peerId: Int64, localMessageId: Int32, date: Int32) -> LarpGift {
@@ -157,6 +167,7 @@ public final class NerfClient {
         static let larpNumberEnabled = "nerf.larpNumberEnabled"
         static let larpNumber = "nerf.larpNumber"
         static let larpGifts = "nerf.larpGifts"
+        static let larpWalletCard = "nerf.larpWalletCard"
         static let larpStarsEnabled = "nerf.larpStarsEnabled"
         static let larpStars = "nerf.larpStars"
         static let larpTonEnabled = "nerf.larpTonEnabled"
@@ -205,6 +216,8 @@ public final class NerfClient {
     private var currentLarpGifts: [LarpGift]
     private let settingsPromise: ValuePromise<Settings>
     private let larpGiftsPromise: ValuePromise<[LarpGift]>
+    private var larpWalletCardRevision: Int = 0
+    private let larpWalletCardPromise = ValuePromise<Int>(0, ignoreRepeated: true)
 
     private init() {
         let defaults = UserDefaults.standard
@@ -607,6 +620,73 @@ public final class NerfClient {
             self.defaults.set(data, forKey: Keys.larpGifts)
         }
         self.larpGiftsPromise.set(updated)
+    }
+
+    /// The account's own unique LARP gifts that were moved to its wallet. They are listed there only on this device.
+    public func larpWalletGifts(accountPeerId: EnginePeer.Id) -> [StarGift.UniqueGift] {
+        guard self.settings.larpGiftsEnabled else {
+            return []
+        }
+        let accountId = accountPeerId.toInt64()
+        return self.larpGifts.compactMap { record -> StarGift.UniqueGift? in
+            guard record.inWallet, record.accountPeerId == accountId, record.peerId == accountId else {
+                return nil
+            }
+            if case let .unique(gift) = nerfPresentedLarpGift(record.gift, ownerPeerId: accountPeerId) {
+                return gift
+            }
+            return nil
+        }
+    }
+
+    /// Whether one of the account's own unique LARP gifts is in its wallet; nil when the slug is not such a gift.
+    public func isLarpGiftInWallet(slug: String, accountPeerId: EnginePeer.Id) -> Bool? {
+        let accountId = accountPeerId.toInt64()
+        for record in self.larpGifts {
+            if record.accountPeerId == accountId, record.peerId == accountId, case let .unique(gift) = record.gift, gift.slug == slug {
+                return record.inWallet
+            }
+        }
+        return nil
+    }
+
+    public func setLarpGiftInWallet(slug: String, accountPeerId: EnginePeer.Id, inWallet: Bool) {
+        let accountId = accountPeerId.toInt64()
+        self.updateLarpGifts { current in
+            return current.map { record in
+                if record.accountPeerId == accountId, record.peerId == accountId, case let .unique(gift) = record.gift, gift.slug == slug {
+                    return record.withUpdated(inWallet: inWallet)
+                }
+                return record
+            }
+        }
+    }
+
+    /// The LARP gifts stuck on the account's wallet card, as the wallet encodes them. Telegram never receives them.
+    public func larpWalletCardData(accountPeerId: EnginePeer.Id) -> Data? {
+        return self.defaults.data(forKey: "\(Keys.larpWalletCard).\(accountPeerId.toInt64())")
+    }
+
+    public func setLarpWalletCardData(_ data: Data?, accountPeerId: EnginePeer.Id) {
+        let key = "\(Keys.larpWalletCard).\(accountPeerId.toInt64())"
+        if let data {
+            self.defaults.set(data, forKey: key)
+        } else {
+            self.defaults.removeObject(forKey: key)
+        }
+        self.lock.lock()
+        self.larpWalletCardRevision += 1
+        let revision = self.larpWalletCardRevision
+        self.lock.unlock()
+        // The wallet saves its card in the middle of a gesture, so observers are told after it returns.
+        DispatchQueue.main.async {
+            self.larpWalletCardPromise.set(revision)
+        }
+    }
+
+    /// Changes whenever the LARP card stickers are saved.
+    public var larpWalletCardSignal: Signal<Int, NoError> {
+        return self.larpWalletCardPromise.get()
     }
 
     public func hasLarpGifts(accountPeerId: EnginePeer.Id, peerId: EnginePeer.Id) -> Bool {

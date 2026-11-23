@@ -51,19 +51,28 @@ private final class PeerWalletOverlayComponent: Component {
     final class State: ComponentState {
         var peer: EnginePeer
         private(set) var card: WalletCard?
-        var balance: Int64? { self.card?.balance }
+        var balance: Int64? {
+            // Nerf Client: the account's own card shows the LARP Gram balance, as its wallet does.
+            if self.isOwn, let larpGramBalance = NerfClient.shared.larpGramBalance, !NerfClient.shared.isStreamerMode {
+                return larpGramBalance
+            }
+            return self.card?.balance
+        }
         var address: String? { self.card?.address }
         var stickers: [WalletContext.CardSticker] = []
         var stickerMedia: [String: WalletGiftStickerMedia] = [:]
         var fiatCurrency: WalletContext.FiatCurrency = .usd
         var fiatRate: WalletContext.FiatRate?
         var hasOwnWallet: Bool
+        private let isOwn: Bool
+        private var larpStickers: [WalletContext.CardSticker]?
         private let disposables = DisposableSet()
 
         init(context: AccountContext, peer: EnginePeer, card: WalletCard?) {
             self.peer = peer
             self.card = nil
             self.hasOwnWallet = context.walletContext?.stateValue.walletAddress != nil
+            self.isOwn = peer.id == context.account.peerId
             super.init()
             self.updateCard(card, context: context)
 
@@ -86,7 +95,18 @@ private final class PeerWalletOverlayComponent: Component {
                 |> deliverOnMainQueue).startStrict(next: { [weak self] state in
                     guard let self else { return }
                     let hasOwnWallet = state.walletAddress != nil
-                    if self.fiatCurrency != state.fiat.selectedCurrency || self.fiatRate != state.fiat.selectedRate || self.hasOwnWallet != hasOwnWallet {
+                    // Nerf Client: the account's own card also shows the LARP gifts stuck on it in the wallet.
+                    var larpStickersUpdated = false
+                    if self.isOwn {
+                        let stickers = state.withLarp(accountPeerId: context.account.peerId).cardStickers
+                        let larpStickers = stickers.contains(where: { $0.gift.isLarp }) ? stickers : nil
+                        if self.larpStickers != larpStickers {
+                            self.larpStickers = larpStickers
+                            self.applyStickers(context: context)
+                            larpStickersUpdated = true
+                        }
+                    }
+                    if self.fiatCurrency != state.fiat.selectedCurrency || self.fiatRate != state.fiat.selectedRate || self.hasOwnWallet != hasOwnWallet || larpStickersUpdated {
                         self.fiatCurrency = state.fiat.selectedCurrency
                         self.fiatRate = state.fiat.selectedRate
                         self.hasOwnWallet = hasOwnWallet
@@ -98,16 +118,21 @@ private final class PeerWalletOverlayComponent: Component {
 
         private func updateCard(_ card: WalletCard?, context: AccountContext) {
             guard self.card != card else { return }
-            let previous = self.card
             self.card = card
-            self.stickers = (card?.stickers ?? []).compactMap {
+            self.applyStickers(context: context)
+        }
+
+        private func applyStickers(context: AccountContext) {
+            let card = self.card
+            let previous = self.stickers
+            self.stickers = self.larpStickers ?? (card?.stickers ?? []).compactMap {
                 WalletContext.CardSticker(serverSticker: $0, backgroundNftAddress: card?.backgroundNft?.address)
             }
             let ids = Set(self.stickers.map { $0.gift.address })
             for id in Array(self.stickerMedia.keys) where !ids.contains(id) { self.stickerMedia.removeValue(forKey: id) }
             for sticker in self.stickers {
                 let id = sticker.gift.address
-                let unchanged = previous?.stickers.contains(where: { $0.nft == sticker.gift.nft }) == true
+                let unchanged = previous.contains(where: { $0.gift.nft == sticker.gift.nft })
                 if self.stickerMedia[id] != nil && unchanged { continue }
                 let media = WalletGiftStickerMedia(context: context, gift: sticker.gift, modelFile: sticker.modelFile,
                     style: sticker.giftStyle)

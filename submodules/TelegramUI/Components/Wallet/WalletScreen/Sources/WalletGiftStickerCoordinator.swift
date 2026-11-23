@@ -743,7 +743,12 @@ final class WalletGiftStickerCoordinator: NSObject, UIGestureRecognizerDelegate 
         guard let address else { return }
         self.placements = WalletContext.CardSticker.validated(self.placements)
         self.pendingCommit = self.placements
-        self.wallet?.updateCardStickers(self.placements, walletAddress: address)
+        // Nerf Client: LARP gifts on the card are stored on this device, apart from the real ones.
+        if let accountPeerId = self.context?.account.peerId {
+            self.wallet?.updateCardStickers(self.placements, walletAddress: address, accountPeerId: accountPeerId)
+        } else {
+            self.wallet?.updateCardStickers(self.placements, walletAddress: address)
+        }
     }
 
     @objc private func tapped(_ recognizer: UITapGestureRecognizer) {
@@ -1282,6 +1287,8 @@ extension WalletGiftStickerCoordinator: WalletCollectibleStickerHost {
 
     fileprivate func styleAvailability(_ gift: WalletContext.Collectible) -> StyleAvailability {
         guard let context = self.context else { return .unavailable }
+        // Nerf Client: any LARP gift can color the card.
+        if gift.isLarp { return .allowed }
         let configuration = WalletConfiguration.with(appConfiguration: context.currentAppConfiguration.with { $0 })
         guard configuration.cardBackgroundGiftCollections != nil else { return .unavailable }
         return configuration.allowsCardBackground(giftSlug: gift.giftSlug) ? .allowed : .restricted

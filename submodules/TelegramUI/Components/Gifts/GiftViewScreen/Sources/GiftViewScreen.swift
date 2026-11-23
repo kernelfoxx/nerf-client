@@ -2245,6 +2245,22 @@ private final class GiftViewSheetContent: CombinedComponent {
                         self?.updateSavedToProfile(!displayed)
                     })))
                 }
+                
+                // Nerf Client: an own LARP gift is listed among the wallet's collectibles or taken out of them, on this device only.
+                if isLarpGift, let inWallet = NerfClient.shared.isLarpGiftInWallet(slug: gift.slug, accountPeerId: self.context.account.peerId), case .wallet? = self.context.walletContext?.stateValue.phase {
+                    items.append(.action(ContextMenuActionItem(text: inWallet ? strings.Gift_Transfer_MoveToGifts : strings.Gift_Transfer_MoveToWallet, icon: { theme in
+                        return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Replace"), color: theme.contextMenu.primaryColor)
+                    }, action: { [weak self, weak controller] c, _ in
+                        c?.dismiss(completion: nil)
+                        
+                        guard let self else {
+                            return
+                        }
+                        NerfClient.shared.setLarpGiftInWallet(slug: gift.slug, accountPeerId: self.context.account.peerId, inWallet: !inWallet)
+                        let toastText = inWallet ? strings.Gift_MoveToGifts_Success : strings.Gift_MoveToWallet_Success
+                        controller?.present(UndoOverlayController(presentationData: presentationData, content: .info(title: nil, text: toastText, timeout: nil, customUndoText: nil), elevatedLayout: false, action: { _ in return true }), in: .current)
+                    })))
+                }
                           
                 if let _ = arguments.canCraftDate {
                     items.append(.action(ContextMenuActionItem(text: presentationData.strings.Gift_View_Context_Craft, icon: { theme in
@@ -7212,7 +7228,13 @@ public class GiftViewScreen: ViewControllerComponentContainer {
                 guard let self else {
                     return
                 }
-                self.upgradableGifts = state.filteredGifts
+                // Nerf Client: LARP gifts upgrade locally from their own screen, never through Telegram.
+                self.upgradableGifts = state.filteredGifts.filter { gift in
+                    if case let .message(messageId) = gift.reference, messageId.namespace == Namespaces.Message.Local {
+                        return false
+                    }
+                    return true
+                }
             })
             self.upgradableGiftsContext = upgradableGiftsContext
         }
